@@ -17,6 +17,6 @@
  * under the License.
  */
 /**
- * Classes for implementing a pulsar IO connector that generates randomized messages.
+ * Pulsar related classes used for kafka source connector.
  */
-package org.apache.pulsar.ecosystem.io.random;
+package io.streamnative.connectors.kafka.pulsar;
