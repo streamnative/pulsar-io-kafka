@@ -1,28 +1,45 @@
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 package io.streamnative.connectors.kafka.pulsar;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.pulsar.common.naming.TopicName.PUBLIC_TENANT;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 import io.streamnative.connectors.kafka.KafkaMessageRouter;
 import io.streamnative.tests.common.framework.SystemTestRunner;
 import io.streamnative.tests.common.framework.SystemTestRunner.TestSuiteClass;
 import io.streamnative.tests.pulsar.service.PulsarService;
-import io.streamnative.tests.pulsar.suites.PulsarServiceSystemTestCase;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
 import java.util.stream.IntStream;
 import lombok.Cleanup;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.bookkeeper.common.concurrent.FutureUtils;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.common.record.TimestampType;
 import org.apache.pulsar.client.api.Consumer;
 import org.apache.pulsar.client.api.HashingScheme;
 import org.apache.pulsar.client.api.Message;
@@ -31,8 +48,9 @@ import org.apache.pulsar.client.api.MessageRouter;
 import org.apache.pulsar.client.api.PulsarClientException;
 import org.apache.pulsar.client.api.Schema;
 import org.apache.pulsar.client.api.SubscriptionInitialPosition;
+import org.apache.pulsar.client.api.schema.SchemaDefinition;
 import org.apache.pulsar.common.naming.TopicName;
-import org.apache.pulsar.common.schema.KeyValue;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -42,50 +60,46 @@ import org.junit.runner.RunWith;
 @RunWith(SystemTestRunner.class)
 @TestSuiteClass(PulsarProducerTestSuite.class)
 @Slf4j
-public class RawKeySchemaValueProducerTest extends PulsarServiceSystemTestCase {
+public class RawKeySchemaValueProducerTest extends PulsarProducerTestBase {
 
     public RawKeySchemaValueProducerTest(PulsarService service) {
         super(service);
     }
 
-    private <V> ConsumerRecord<Object, Object> newKafkaRecord(String topic,
-                                                              int partition,
-                                                              int i,
-                                                              Function<KeyValue<Integer, Integer>, V> valueGenerator) {
-        return new ConsumerRecord<>(
-            topic,
-            partition,
-            i * 1000L,
-            (i + 1) * 10000L,
-            TimestampType.CREATE_TIME,
-            ConsumerRecord.NULL_CHECKSUM,
-            ConsumerRecord.NULL_SIZE,
-            ConsumerRecord.NULL_SIZE,
-            String.format("key-%d-%d", partition, i).getBytes(UTF_8),
-            valueGenerator.apply(new KeyValue<>(partition, i))
-        );
-    }
-
     private <V> void verifyPulsarMessage(Message<V> pulsarMessage,
                                          int partition,
                                          int i,
-                                         Function<KeyValue<Integer, Integer>, V> valueGenerator) {
+                                         Generator<V> valueGenerator,
+                                         boolean nullKey) {
         assertEquals(i * 1000L, pulsarMessage.getSequenceId());
         assertEquals((i + 1) * 10000L, pulsarMessage.getEventTime());
-        assertArrayEquals(
-            String.format("key-%d-%d", partition, i).getBytes(UTF_8),
-            pulsarMessage.getKeyBytes()
-        );
-        if (pulsarMessage.getValue() instanceof byte[]) {
-            assertArrayEquals(
-                (byte[]) valueGenerator.apply(new KeyValue<>(partition, i)),
-                (byte[]) pulsarMessage.getValue()
-            );
+        if (nullKey) {
+            assertFalse(pulsarMessage.hasKey());
         } else {
-            assertEquals(
-                valueGenerator.apply(new KeyValue<>(partition, i)),
-                pulsarMessage.getValue()
+            assertArrayEquals(
+                KEY_GENERATOR.apply(partition, i),
+                pulsarMessage.getKeyBytes()
             );
+        }
+        if (valueGenerator == null) {
+            Object value = pulsarMessage.getValue();
+            if (value instanceof byte[]) {
+                assertTrue(((byte[]) value).length == 0);
+            } else {
+                assertNull(value);
+            }
+        } else {
+            if (pulsarMessage.getValue() instanceof byte[]) {
+                assertArrayEquals(
+                    (byte[]) valueGenerator.apply(partition, i),
+                    (byte[]) pulsarMessage.getValue()
+                );
+            } else {
+                assertEquals(
+                    valueGenerator.apply(partition, i),
+                    pulsarMessage.getValue()
+                );
+            }
         }
     }
 
@@ -93,76 +107,164 @@ public class RawKeySchemaValueProducerTest extends PulsarServiceSystemTestCase {
     public void testBytesSchema() throws Exception {
         testSendMessages(
             10, 10, Schema.BYTES,
-            kv -> String.format("value-%d-%d", kv.getKey(), kv.getValue()).getBytes(UTF_8));
+            BYTES_GENERATOR);
     }
 
     @Test
     public void testBooleanSchema() throws Exception {
         testSendMessages(
             10, 10, Schema.BOOL,
-            kv -> (kv.getKey() * 100 + kv.getValue()) % 2 == 0 ? true : false);
+            BOOLEAN_GENERATOR);
     }
 
     @Test
     public void testInt8Schema() throws Exception {
         testSendMessages(
             10, 10, Schema.INT8,
-            kv -> (byte) (kv.getKey() * 100 + kv.getValue()));
+            BYTE_GENERATOR);
     }
 
     @Test
     public void testInt16Schema() throws Exception {
         testSendMessages(
             10, 10, Schema.INT16,
-            kv -> (short) (kv.getKey() * 100 + kv.getValue()));
+            SHORT_GENERATOR);
     }
 
     @Test
     public void testInt32chema() throws Exception {
         testSendMessages(
             10, 10, Schema.INT32,
-            kv -> kv.getKey() * 100 + kv.getValue());
+            INTEGER_GENERATOR);
     }
 
     @Test
     public void testInt64chema() throws Exception {
         testSendMessages(
             10, 10, Schema.INT64,
-            kv -> kv.getKey() * 100L + kv.getValue());
+            LONG_GENERATOR);
     }
 
     @Test
     public void testFloatchema() throws Exception {
         testSendMessages(
             10, 10, Schema.FLOAT,
-            kv -> kv.getKey() * 100.0f + kv.getValue());
+            FLOAT_GENERATOR);
     }
 
     @Test
     public void testDoublechema() throws Exception {
         testSendMessages(
             10, 10, Schema.DOUBLE,
-            kv -> kv.getKey() * 100.0d + kv.getValue());
+            DOUBLE_GENERATOR);
     }
 
     @Test
     public void testStringSchema() throws Exception {
         testSendMessages(
             10, 10, Schema.STRING,
-            kv -> String.format("value-%d-%d", kv.getKey(), kv.getValue()));
+            STRING_GENERATOR);
+    }
+
+    @Test
+    public void testAvroSchema() throws Exception {
+        testSendMessages(
+            10, 10, Schema.AVRO(
+                SchemaDefinition.<User>builder()
+                    .withPojo(User.class)
+                    .withAlwaysAllowNull(false)
+                    .build()
+            ),
+            USER_GENERATOR);
+    }
+
+    @Test
+    public void testJsonSchema() throws Exception {
+        testSendMessages(
+            10, 10, Schema.JSON(
+                SchemaDefinition.<User>builder()
+                    .withPojo(User.class)
+                    .build()
+            ),
+            USER_GENERATOR);
+    }
+
+    @Test
+    public void testNullKeyAvroSchema() throws Exception {
+        testSendMessages(
+            10, 10, Schema.AVRO(
+                SchemaDefinition.<User>builder()
+                    .withPojo(User.class)
+                    .withAlwaysAllowNull(false)
+                    .build()
+            ),
+            USER_GENERATOR,
+            true);
+    }
+
+    @Ignore(value = "https://github.com/apache/pulsar/issues/4803")
+    public void testNullValueAllSchemas() throws Exception {
+        Schema<?>[] schemas = new Schema<?>[] {
+            Schema.BYTES,
+            Schema.BOOL,
+            Schema.INT8,
+            Schema.INT16,
+            Schema.INT32,
+            Schema.INT64,
+            Schema.FLOAT,
+            Schema.DOUBLE,
+            Schema.STRING,
+            Schema.AVRO(
+                SchemaDefinition.<User>builder()
+                    .withPojo(User.class)
+                    .withAlwaysAllowNull(false)
+                    .build()
+            ),
+            Schema.JSON(
+                SchemaDefinition.<User>builder()
+                    .withPojo(User.class)
+                    .withAlwaysAllowNull(false)
+                    .build()
+            ),
+        };
+
+        for (Schema<?> schema : schemas) {
+            try {
+                testNullValue(schema);
+            } catch (AssertionError e) {
+                throw new AssertionError("Exception thrown when verifying schema "
+                    + schema.getSchemaInfo().getType(), e);
+            }
+        }
+    }
+
+    private void testNullValue(Schema<?> schema) throws Exception {
+        testSendMessages(
+            10, 10,
+            schema,
+            null,
+            false
+        );
     }
 
     private <V> void testSendMessages(int numPartitions, int numMessages,
                                       Schema<V> valueSchema,
-                                      Function<KeyValue<Integer, Integer>, V> valueGenerator) throws Exception {
-        provisionPartitionedTopic(PUBLIC_TENANT, numPartitions, topicName -> {
-            testSendMessages(topicName, numPartitions, numMessages, valueSchema, valueGenerator);
-        });
+                                      Generator<V> valueGenerator) throws Exception {
+        testSendMessages(numPartitions, numMessages, valueSchema, valueGenerator, false);
+    }
+
+    private <V> void testSendMessages(int numPartitions, int numMessages,
+                                      Schema<V> valueSchema,
+                                      Generator<V> valueGenerator,
+                                      boolean nullKey) throws Exception {
+        provisionPartitionedTopic(PUBLIC_TENANT, numPartitions,
+            topicName -> testSendMessages(topicName, numPartitions, numMessages, valueSchema, valueGenerator, nullKey));
     }
 
     private <V> void testSendMessages(TopicName topicName, int numPartitions, int numMessages,
                                       Schema<V> valueSchema,
-                                      Function<KeyValue<Integer, Integer>, V> valueGenerator) throws Exception {
+                                      Generator<V> valueGenerator,
+                                      boolean nullKey) throws Exception {
         MessageRouter kafkaMessageRouter = new KafkaMessageRouter(
             HashingScheme.Murmur3_32Hash,
             0,
@@ -191,6 +293,7 @@ public class RawKeySchemaValueProducerTest extends PulsarServiceSystemTestCase {
                     topicName.toString(),
                     i,
                     j,
+                    nullKey ? null : KEY_GENERATOR,
                     valueGenerator
                 );
                 sendFutures.add(producer.send(record));
@@ -212,7 +315,8 @@ public class RawKeySchemaValueProducerTest extends PulsarServiceSystemTestCase {
                     message,
                     partitionIdx,
                     messageIdxInPtn + 1,
-                    valueGenerator
+                    valueGenerator,
+                    nullKey
                 );
 
                 partitionIdxs.put(partitionIdx, messageIdxInPtn + 1);

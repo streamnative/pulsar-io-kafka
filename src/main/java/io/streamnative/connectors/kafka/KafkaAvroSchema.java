@@ -31,14 +31,12 @@ import org.apache.pulsar.common.schema.SchemaType;
  */
 public class KafkaAvroSchema implements Schema<KafkaSchemaAndBytes> {
 
-    private org.apache.avro.Schema avroSchema = null;
     private SchemaInfo schemaInfo = null;
 
     public KafkaAvroSchema() {
     }
 
     public void setAvroSchema(org.apache.avro.Schema schema) {
-        this.avroSchema = schema;
         this.schemaInfo = SchemaInfo.builder()
             .name("KafkaAvro")
             .type(SchemaType.AVRO)

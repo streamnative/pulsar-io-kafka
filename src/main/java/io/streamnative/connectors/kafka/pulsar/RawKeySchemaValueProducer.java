@@ -26,6 +26,7 @@ import org.apache.pulsar.client.api.MessageRouter;
 import org.apache.pulsar.client.api.PulsarClient;
 import org.apache.pulsar.client.api.PulsarClientException;
 import org.apache.pulsar.client.api.Schema;
+import org.apache.pulsar.client.api.TypedMessageBuilder;
 
 /**
  * Producer for key without schema and value with schema.
@@ -48,10 +49,16 @@ public class RawKeySchemaValueProducer extends PulsarProducerBase {
 
     @Override
     public CompletableFuture<MessageId> send(ConsumerRecord<Object, Object> record) {
-        return newMessage(record)
-            .keyBytes((byte[]) record.key())
-            .value(record.value())
-            .sendAsync();
+        TypedMessageBuilder<Object> msgBuilder = newMessage(record);
+        Object recordKey = record.key();
+        if (null != recordKey) {
+            msgBuilder = msgBuilder.keyBytes((byte[]) recordKey);
+        }
+        Object recordValue = record.value();
+        if (null != recordValue) {
+            msgBuilder = msgBuilder.value(record.value());
+        }
+        return msgBuilder.sendAsync();
     }
 
 }

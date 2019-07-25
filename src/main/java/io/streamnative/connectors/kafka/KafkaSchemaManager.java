@@ -18,13 +18,11 @@
  */
 package io.streamnative.connectors.kafka;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 import io.confluent.kafka.schemaregistry.client.CachedSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException;
 import java.io.IOException;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -32,8 +30,6 @@ import java.util.concurrent.ConcurrentMap;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.Schema;
 import org.apache.kafka.common.errors.SerializationException;
-import org.apache.pulsar.common.schema.SchemaInfo;
-import org.apache.pulsar.common.schema.SchemaType;
 
 /**
  * A manager to manage Kafka schemas and convert Kafka schema to Pulsar schema.

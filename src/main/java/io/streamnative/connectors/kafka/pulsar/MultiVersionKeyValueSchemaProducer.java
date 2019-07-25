@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.pulsar.client.api.MessageId;
 import org.apache.pulsar.client.api.MessageRouter;
@@ -36,6 +37,7 @@ import org.apache.pulsar.common.schema.KeyValue;
 /**
  * Producer to handle multiple versions in key/value schemas.
  */
+@Slf4j
 public class MultiVersionKeyValueSchemaProducer implements PulsarProducer {
 
     private final Schema keySchema;
@@ -110,14 +112,27 @@ public class MultiVersionKeyValueSchemaProducer implements PulsarProducer {
             valueSchema = valueAvroSchema;
         }
 
-        return new KeyValueSchemaProducer(
-            client,
-            topic,
-            keySchema,
-            valueSchema,
-            producerConfig,
-            messageRouter
-        );
+        try {
+            return new KeyValueSchemaProducer(
+                client,
+                topic,
+                keySchema,
+                valueSchema,
+                producerConfig,
+                messageRouter
+            );
+        } catch (PulsarClientException e) {
+            log.error("Failed to create a key/value producer with key schema = {}, value schema = {}",
+                keySchema.getSchemaInfo(),
+                valueSchema.getSchemaInfo(),
+                e);
+            try {
+                Thread.sleep(1000000000);
+            } catch (InterruptedException e1) {
+                e1.printStackTrace();
+            }
+            throw e;
+        }
     }
 
     @Override

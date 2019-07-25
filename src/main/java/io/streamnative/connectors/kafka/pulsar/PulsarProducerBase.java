@@ -20,6 +20,8 @@ package io.streamnative.connectors.kafka.pulsar;
 
 import io.streamnative.connectors.kafka.KafkaSource;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.record.TimestampType;
 import org.apache.pulsar.client.api.MessageRouter;
@@ -32,13 +34,17 @@ import org.apache.pulsar.client.api.TypedMessageBuilder;
 /**
  * The producer base implementation.
  */
+@Slf4j
 @SuppressWarnings("unchecked")
 public abstract class PulsarProducerBase implements PulsarProducer {
 
+    /**
+     * Function that throws {@link PulsarClientException}.
+     */
     @FunctionalInterface
-    public interface ExceptionalFunction<I, O> {
+    public interface ExceptionalFunction<InputT, OutputT> {
 
-        O apply(I input) throws PulsarClientException;
+        OutputT apply(InputT input) throws PulsarClientException;
 
     }
 
@@ -53,11 +59,32 @@ public abstract class PulsarProducerBase implements PulsarProducer {
                                  MessageRouter messageRouter) throws PulsarClientException {
         this(
             schema,
-            s -> client.newProducer(s)
-                .loadConf(producerConfig)
-                .topic(topic)
-                .messageRouter(messageRouter)
-                .create());
+            s -> {
+                while (true) {
+                    try {
+                        return client.newProducer(s)
+                            .loadConf(producerConfig)
+                            .topic(topic)
+                            .messageRouter(messageRouter)
+                            .create();
+                    } catch (PulsarClientException pce) {
+                        if (pce.getMessage() != null && pce.getMessage().contains(
+                            "org.apache.zookeeper.KeeperException$BadVersionException: KeeperErrorCode = BadVersion")) {
+                            log.warn("Failed to create producer for topic {} : {}",
+                                topic, pce.getMessage());
+                            try {
+                                TimeUnit.MILLISECONDS.sleep(200);
+                            } catch (InterruptedException e) {
+                                Thread.currentThread().interrupt();
+                                throw new PulsarClientException(
+                                    "Interrupted during crate pulsar producer for topic " + topic);
+                            }
+                        } else {
+                            throw pce;
+                        }
+                    }
+                }
+            });
     }
 
     protected PulsarProducerBase(Schema schema,

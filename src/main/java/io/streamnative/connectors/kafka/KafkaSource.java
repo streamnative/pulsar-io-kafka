@@ -175,7 +175,7 @@ public class KafkaSource implements Source<byte[]> {
             this.pulsarProducer = new MultiVersionKeyValueSchemaProducer(
                 pulsarClient,
                 pulsarTopic,
-                keySchema == null ? Schema.BYTES : keySchema,
+                keySchema,
                 valueSchema == null ? Schema.BYTES : valueSchema,
                 config.pulsar().producer(),
                 messageRouter,

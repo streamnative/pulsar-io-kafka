@@ -46,10 +46,12 @@ public class KafkaSourceConfig {
             defaultValue = "",
             help = "The Kafka topic to consume.")
         private String topic;
+        //CHECKSTYLE.OFF: MemberName
         @FieldDoc(
             defaultValue = "1000",
             help = "The Kafka consumer poll duration in milliseconds.")
         private long poll_duration_ms = 1000;
+        //CHECKSTYLE.ON: MemberName
         @FieldDoc(
             defaultValue = "",
             help = "The consumer config properties to be passed to a Kafka consumer.")
@@ -87,6 +89,7 @@ public class KafkaSourceConfig {
                 + " the Kafka topic name as the Pulsar topic name"
         )
         private String topic;
+        //CHECKSTYLE.OFF: MemberName
         @FieldDoc(
             defaultValue = "false",
             help = "Flag to allow pulsar topic have different number of partitions from kafka topic"
@@ -102,6 +105,7 @@ public class KafkaSourceConfig {
             help = "Flag to control whether to copy kafka schema to pulsar schema"
         )
         private boolean copy_kafka_schema = false;
+        //CHECKSTYLE.ON: MemberName
         @FieldDoc(
             defaultValue = "",
             help = "The pulsar client configuration")
