@@ -16,7 +16,14 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+package io.streamnative.connectors.kafka.pulsar;
+
 /**
- * Classes for implementing a pulsar IO connector that generates randomized messages.
+ * Generator to generate values based on partition and sequence information.
  */
-package org.apache.pulsar.ecosystem.io.random;
+@FunctionalInterface
+public interface Generator<V> {
+
+    V apply(int partition, int sequence);
+
+}
