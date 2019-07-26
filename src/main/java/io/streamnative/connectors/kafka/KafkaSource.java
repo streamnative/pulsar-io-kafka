@@ -160,13 +160,21 @@ public class KafkaSource implements Source<byte[]> {
                 log.info("Got the partition metadata for Pulsar topic {} : partitions = {}",
                     pulsarTopic, metadata.partitions);
             }
-            if (kafkaPartitions.size() != numPartitions
-                && !config.pulsar().allow_different_num_partitions()) {
-                throw new IllegalArgumentException(
-                    "Inconsistent partition number : Kafka topic '" + config.kafka().topic()
-                        + "' has " + kafkaPartitions.size() + " partitions but Pulsar topic '"
-                        + pulsarTopic + "' has " + numPartitions + " partitions"
-                );
+            if (kafkaPartitions.size() != numPartitions) {
+                if (!config.pulsar().allow_different_num_partitions()) {
+                    throw new IllegalArgumentException(
+                        "Inconsistent partition number : Kafka topic '" + config.kafka().topic()
+                            + "' has " + kafkaPartitions.size() + " partitions but Pulsar topic '"
+                            + pulsarTopic + "' has " + numPartitions + " partitions"
+                    );
+                } else if (config.pulsar().update_partitions_if_inconsistent()
+                    && numPartitions < kafkaPartitions.size()) {
+                    log.info("Updating the number of partitions for Pulsar topic {} from {} to {}",
+                        pulsarTopic, numPartitions, kafkaPartitions.size());
+                    admin.topics().updatePartitionedTopic(pulsarTopic, kafkaPartitions.size());
+                    log.info("Successfully updated the number of partitions for Pulsar topic {} from {} to {}",
+                        pulsarTopic, numPartitions, kafkaPartitions.size());
+                }
             }
         } catch (PulsarAdminException pae) {
             log.error("Failed to fetch the partitions for Pulsar topic {}", pulsarTopic, pae);

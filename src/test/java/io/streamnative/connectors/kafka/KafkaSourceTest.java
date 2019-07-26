@@ -236,9 +236,56 @@ public class KafkaSourceTest extends KafkaSourceTestBase {
         config.kafka().topic(topic);
         config.pulsar().create_topic_if_missing(false);
         config.pulsar().allow_different_num_partitions(true);
+        config.pulsar().update_partitions_if_inconsistent(false);
 
         final int numKafkaPartitions = 4;
         final int numPulsarPartitions = 5;
+
+        createKafkaTopic(topic, numKafkaPartitions);
+        admin.topics().createPartitionedTopic(topic, numPulsarPartitions);
+
+        KafkaSource source = new KafkaSource();
+        source.open(config.toConfigMap(), ctx);
+
+        PartitionedTopicMetadata metadata = admin.topics().getPartitionedTopicMetadata(topic);
+        assertEquals(numPulsarPartitions, metadata.partitions);
+    }
+
+    @Test
+    public void testUpdatePartitionsIfInconsistentWithLessPartitions() throws Exception {
+        final String topic = "test-update-partitions-if-inconsistent-" + Base58.randomString(8);
+
+        KafkaSourceConfig config = newKafkaSourceConfig();
+        config.kafka().topic(topic);
+        config.pulsar().create_topic_if_missing(false);
+        config.pulsar().allow_different_num_partitions(true);
+        config.pulsar().update_partitions_if_inconsistent(true);
+
+        final int numKafkaPartitions = 8;
+        final int numPulsarPartitions = 5;
+
+        createKafkaTopic(topic, numKafkaPartitions);
+        admin.topics().createPartitionedTopic(topic, numPulsarPartitions);
+
+        KafkaSource source = new KafkaSource();
+        source.open(config.toConfigMap(), ctx);
+
+        PartitionedTopicMetadata metadata = admin.topics().getPartitionedTopicMetadata(topic);
+        assertEquals(numKafkaPartitions, metadata.partitions);
+    }
+
+    @Test
+    public void testUpdatePartitionsIfInconsistentWithMorePartitions() throws Exception {
+        final String topic = "test-update-partitions-if-inconsistent-" + Base58.randomString(8);
+
+        KafkaSourceConfig config = newKafkaSourceConfig();
+        config.kafka().topic(topic);
+        config.pulsar().create_topic_if_missing(false);
+        config.pulsar().allow_different_num_partitions(true);
+        config.pulsar().update_partitions_if_inconsistent(true);
+
+        final int numKafkaPartitions = 5;
+        final int numPulsarPartitions = 8;
 
         createKafkaTopic(topic, numKafkaPartitions);
         admin.topics().createPartitionedTopic(topic, numPulsarPartitions);
@@ -258,6 +305,7 @@ public class KafkaSourceTest extends KafkaSourceTestBase {
         config.kafka().topic(topic);
         config.pulsar().create_topic_if_missing(false);
         config.pulsar().allow_different_num_partitions(false);
+        config.pulsar().update_partitions_if_inconsistent(false);
 
         final int numKafkaPartitions = 4;
         final int numPulsarPartitions = 5;
