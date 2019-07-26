@@ -18,14 +18,21 @@
  */
 package io.streamnative.connectors.kafka;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import java.io.File;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
+import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 import lombok.experimental.Accessors;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.io.core.annotations.FieldDoc;
 
 /**
@@ -33,33 +40,47 @@ import org.apache.pulsar.io.core.annotations.FieldDoc;
  */
 @Data
 @Accessors(fluent = true)
+@AllArgsConstructor
+@NoArgsConstructor
+@Slf4j
 public class KafkaSourceConfig {
+
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> toConfigMap() throws IOException {
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
+        String json = mapper.writeValueAsString(this);
+        log.info("Serialize kafka source config {} to json {}", this, json);
+        return mapper.readValue(json, Map.class);
+    }
 
     /**
      * The configuration for kafka consumer.
      */
     @Data
     @Accessors(fluent = true)
+    @NoArgsConstructor
+    @AllArgsConstructor
     static class KafkaConsumerConfig {
         @FieldDoc(
             required = true,
             defaultValue = "",
             help = "The Kafka topic to consume.")
-        private String topic;
+        public String topic;
         //CHECKSTYLE.OFF: MemberName
         @FieldDoc(
             defaultValue = "1000",
             help = "The Kafka consumer poll duration in milliseconds.")
-        private long poll_duration_ms = 1000;
+        public long poll_duration_ms = 1000;
         //CHECKSTYLE.ON: MemberName
         @FieldDoc(
             defaultValue = "",
             help = "The consumer config properties to be passed to a Kafka consumer.")
-        private Map<String, Object> consumer;
+        public Map<String, Object> consumer;
         @FieldDoc(
             defaultValue = "",
             help = "The kafka schema registry properties")
-        private Map<String, Object> schema;
+        public Map<String, Object> schema;
 
         public void validate() {
             Objects.requireNonNull(
@@ -75,47 +96,59 @@ public class KafkaSourceConfig {
         required = true,
         defaultValue = "",
         help = "The configuration for kafka consumer")
-    private KafkaConsumerConfig kafka;
+    @JsonProperty
+    public KafkaConsumerConfig kafka;
 
     /**
      * The configuration for pulsar producer.
      */
     @Data
     @Accessors(fluent = true)
+    @NoArgsConstructor
+    @AllArgsConstructor
     static class PulsarProducerConfig {
         @FieldDoc(
             defaultValue = "",
             help = "The topic to store the pulsar topic. If it is not set, the source connector uses"
                 + " the Kafka topic name as the Pulsar topic name"
         )
-        private String topic;
+        public String topic;
         //CHECKSTYLE.OFF: MemberName
+        @FieldDoc(
+            required = true,
+            defaultValue = "",
+            help = "The pulsar web service url used for accessing Pulsar topic metadata and creating Pulsar topic"
+        )
+        public String pulsar_web_service_url;
         @FieldDoc(
             defaultValue = "false",
             help = "Flag to allow pulsar topic have different number of partitions from kafka topic"
         )
-        private boolean allow_different_num_partitions = false;
+        public boolean allow_different_num_partitions = false;
         @FieldDoc(
             defaultValue = "true",
             help = "Flag to create the pulsar topic if it is missing"
         )
-        private boolean create_topic_if_missing = true;
+        public boolean create_topic_if_missing = true;
         @FieldDoc(
             defaultValue = "false",
             help = "Flag to control whether to copy kafka schema to pulsar schema"
         )
-        private boolean copy_kafka_schema = false;
+        public boolean copy_kafka_schema = false;
         //CHECKSTYLE.ON: MemberName
         @FieldDoc(
             defaultValue = "",
             help = "The pulsar client configuration")
-        private Map<String, Object> client;
+        public Map<String, Object> client;
         @FieldDoc(
             defaultValue = "",
             help = "The pulsar producer configuration")
-        private Map<String, Object> producer;
+        public Map<String, Object> producer = Collections.emptyMap();
 
         public void validate() {
+            Objects.requireNonNull(
+                pulsar_web_service_url,
+                "The Pulsar web service url is missing");
             Objects.requireNonNull(
                 client,
                 "The Pulsar client settings are missing");
@@ -126,16 +159,29 @@ public class KafkaSourceConfig {
         required = true,
         defaultValue = "",
         help = "The configuration for pulsar producer")
-    private PulsarProducerConfig pulsar;
+    public PulsarProducerConfig pulsar;
 
     public static KafkaSourceConfig load(String yamlFile) throws IOException {
         ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
+        mapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
         return mapper.readValue(new File(yamlFile), KafkaSourceConfig.class);
     }
 
     public static KafkaSourceConfig load(Map<String, Object> map) throws IOException {
         ObjectMapper mapper = new ObjectMapper();
+        mapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
         return mapper.readValue(new ObjectMapper().writeValueAsString(map), KafkaSourceConfig.class);
+    }
+
+    @Override
+    public String toString() {
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
+        try {
+            return mapper.writerWithDefaultPrettyPrinter().writeValueAsString(this);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("Failed to serialize kafka source config");
+        }
     }
 
 }
