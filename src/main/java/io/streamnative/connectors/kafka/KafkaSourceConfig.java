@@ -127,6 +127,13 @@ public class KafkaSourceConfig {
         public boolean allow_different_num_partitions = false;
         @FieldDoc(
             defaultValue = "true",
+            help = "Flag to update the num of partitions for Pulsar topic if it is inconsistent to Kafka topic."
+                + " Currently it only supports increasing the number of partitions but not decreasing the number"
+                + " of partitions"
+        )
+        public boolean update_partitions_if_inconsistent = true;
+        @FieldDoc(
+            defaultValue = "true",
             help = "Flag to create the pulsar topic if it is missing"
         )
         public boolean create_topic_if_missing = true;
