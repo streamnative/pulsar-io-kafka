@@ -61,6 +61,8 @@ import org.apache.kafka.common.serialization.IntegerDeserializer;
 import org.apache.kafka.common.serialization.LongDeserializer;
 import org.apache.kafka.common.serialization.ShortDeserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
+import org.apache.pulsar.client.admin.PulsarAdmin;
+import org.apache.pulsar.client.admin.PulsarAdminException;
 import org.apache.pulsar.client.api.HashingScheme;
 import org.apache.pulsar.client.api.MessageId;
 import org.apache.pulsar.client.api.MessageRouter;
@@ -69,9 +71,11 @@ import org.apache.pulsar.client.api.Schema;
 import org.apache.pulsar.client.impl.conf.ConfigurationDataUtils;
 import org.apache.pulsar.client.impl.conf.ProducerConfigurationData;
 import org.apache.pulsar.client.impl.schema.StringSchema;
+import org.apache.pulsar.common.partition.PartitionedTopicMetadata;
 import org.apache.pulsar.functions.api.Record;
 import org.apache.pulsar.io.core.Source;
 import org.apache.pulsar.io.core.SourceContext;
+import org.apache.pulsar.shade.javax.ws.rs.ClientErrorException;
 
 /**
  * Kafka source connector.
@@ -116,6 +120,8 @@ public class KafkaSource implements Source<byte[]> {
             "The Pulsar settings are missing");
         config.pulsar().validate();
 
+        log.info("Opening the Kafka source with config : {}", config);
+
         Schema keySchema = getPulsarSchemaAndReconfigureDeserializerClass(
             config,
             true
@@ -127,28 +133,44 @@ public class KafkaSource implements Source<byte[]> {
 
         // create the pulsar client
         this.pulsarClient = PulsarClient.builder()
+            .serviceUrl(config.pulsar().pulsar_web_service_url())
             .loadConf(config.pulsar().client())
             .build();
 
         this.kafkaConsumer = initializeKafkaConsumer(config.kafka());
 
         // prepare the metadata
+        log.info("Getting the partition information for Kafka topic {}", config.kafka().topic());
         List<PartitionInfo> kafkaPartitions = kafkaConsumer.partitionsFor(config.kafka().topic());
+        log.info("Got the partition information for Kafka topic {} : {}",
+            config.kafka().topic(), kafkaPartitions);
 
         final String pulsarTopic = getPulsarTopic(config);
-        try {
-            List<String> pulsarPartitions = pulsarClient.getPartitionsForTopic(pulsarTopic).get();
-            if (kafkaPartitions.size() != pulsarPartitions.size()
+        try (PulsarAdmin admin = PulsarAdmin.builder()
+            .serviceHttpUrl(config.pulsar().pulsar_web_service_url())
+            .build()
+        ) {
+            log.info("Getting the partitions for Pulsar topic {}", pulsarTopic);
+            int numPartitions = kafkaPartitions.size();
+            PartitionedTopicMetadata metadata = admin.topics().getPartitionedTopicMetadata(pulsarTopic);
+            if (metadata.partitions == 0) {
+                createPartitionedTopic(admin, pulsarTopic, numPartitions);
+            } else {
+                numPartitions = metadata.partitions;
+                log.info("Got the partition metadata for Pulsar topic {} : partitions = {}",
+                    pulsarTopic, metadata.partitions);
+            }
+            if (kafkaPartitions.size() != numPartitions
                 && !config.pulsar().allow_different_num_partitions()) {
                 throw new IllegalArgumentException(
                     "Inconsistent partition number : Kafka topic '" + config.kafka().topic()
                         + "' has " + kafkaPartitions.size() + " partitions but Pulsar topic '"
-                        + pulsarTopic + "' has " + pulsarPartitions.size() + " partitions"
+                        + pulsarTopic + "' has " + numPartitions + " partitions"
                 );
             }
-        } catch (ExecutionException ee) {
-            // TODO: handle partitioned topic not exist
-            throw ee;
+        } catch (PulsarAdminException pae) {
+            log.error("Failed to fetch the partitions for Pulsar topic {}", pulsarTopic, pae);
+            throw pae;
         }
 
         ProducerConfigurationData producerConf = new ProducerConfigurationData();
@@ -187,6 +209,20 @@ public class KafkaSource implements Source<byte[]> {
         start();
     }
 
+    private void createPartitionedTopic(PulsarAdmin admin,
+                                        String pulsarTopic, int numPartitions) throws PulsarAdminException  {
+        if (config.pulsar().create_topic_if_missing()) {
+            log.info("Pulsar topic {} doesn't exist, creating it since `create_topic_if_missing` is enabled",
+                pulsarTopic);
+            admin.topics().createPartitionedTopic(pulsarTopic, numPartitions);
+            log.info("Successfully created Pulsar topic {} with {} partitions", pulsarTopic, numPartitions);
+        } else {
+            log.error("Pulsar topic {} doesn't exist", pulsarTopic);
+            throw new PulsarAdminException.NotFoundException(
+                new ClientErrorException(404));
+        }
+    }
+
     private static String getPulsarTopic(KafkaSourceConfig config) {
         if (config.pulsar().topic() == null) {
             return config.kafka().topic();
@@ -202,8 +238,8 @@ public class KafkaSource implements Source<byte[]> {
         return new KafkaConsumer<>(props);
     }
 
-    private Class<? extends Deserializer> getKafkaDeserializerClass(Map<String, Object> props,
-                                                                    String deserializerClassKey)
+    static Class<? extends Deserializer> getKafkaDeserializerClass(Map<String, Object> props,
+                                                                   String deserializerClassKey)
         throws ClassNotFoundException {
         Object deserializerClassName = props.get(deserializerClassKey);
         Objects.requireNonNull(
@@ -219,8 +255,8 @@ public class KafkaSource implements Source<byte[]> {
         return theCls.asSubclass(Deserializer.class);
     }
 
-    private Schema getPulsarSchemaAndReconfigureDeserializerClass(KafkaSourceConfig config,
-                                                                  boolean isKey) throws ClassNotFoundException {
+    static Schema getPulsarSchemaAndReconfigureDeserializerClass(KafkaSourceConfig config,
+                                                                 boolean isKey) throws ClassNotFoundException {
         String deserializerClassKey;
         if (isKey) {
             deserializerClassKey = ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG;
@@ -368,7 +404,6 @@ public class KafkaSource implements Source<byte[]> {
         }
 
     }
-
 
     @Override
     public Record<byte[]> read() throws Exception {
