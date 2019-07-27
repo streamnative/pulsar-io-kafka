@@ -43,7 +43,7 @@ public class PulsarProducerTestBase extends PulsarServiceSystemTestCase {
     @Data
     @AllArgsConstructor
     @NoArgsConstructor
-    protected static class User {
+    public static class User {
         String name;
         int age;
     }
@@ -54,53 +54,53 @@ public class PulsarProducerTestBase extends PulsarServiceSystemTestCase {
     @Data
     @AllArgsConstructor
     @NoArgsConstructor
-    protected static class Student {
+    public static class Student {
         String name;
         int age;
         @AvroDefault(value = "\"0\"")
         Double gpa;
     }
 
-    protected static final AvroSchema<User> PULSAR_USER_SCHEMA = AvroSchema.of(
+    public static final AvroSchema<User> PULSAR_USER_SCHEMA = AvroSchema.of(
         SchemaDefinition.<User>builder()
             .withPojo(User.class)
             .withAlwaysAllowNull(false)
             .withSupportSchemaVersioning(true)
            .build());
-    protected static final String AVRO_USER_SCHEMA_DEF = PULSAR_USER_SCHEMA.getAvroSchema().toString();
-    protected static final Schema AVRO_USER_SCHEMA = new Schema.Parser().parse(AVRO_USER_SCHEMA_DEF);
+    public static final String AVRO_USER_SCHEMA_DEF = PULSAR_USER_SCHEMA.getAvroSchema().toString();
+    public static final Schema AVRO_USER_SCHEMA = new Schema.Parser().parse(AVRO_USER_SCHEMA_DEF);
 
-    protected static final AvroSchema<Student> PULSAR_STUDENT_SCHEMA = AvroSchema.of(
+    public static final AvroSchema<Student> PULSAR_STUDENT_SCHEMA = AvroSchema.of(
         SchemaDefinition.<Student>builder()
             .withPojo(Student.class)
             .withAlwaysAllowNull(false)
             .withSupportSchemaVersioning(true)
             .build());
-    protected static final String AVRO_STUDENT_SCHEMA_DEF = PULSAR_STUDENT_SCHEMA.getAvroSchema().toString();
-    protected static final Schema AVRO_STUDENT_SCHEMA = new Schema.Parser().parse(AVRO_STUDENT_SCHEMA_DEF);
+    public static final String AVRO_STUDENT_SCHEMA_DEF = PULSAR_STUDENT_SCHEMA.getAvroSchema().toString();
+    public static final Schema AVRO_STUDENT_SCHEMA = new Schema.Parser().parse(AVRO_STUDENT_SCHEMA_DEF);
 
-    protected static final Generator<byte[]> KEY_GENERATOR =
+    public static final Generator<byte[]> KEY_GENERATOR =
         (partition, sequence) -> String.format("key-%d-%d", partition, sequence).getBytes(UTF_8);
 
-    protected static final Generator<byte[]> BYTES_GENERATOR =
+    public static final Generator<byte[]> BYTES_GENERATOR =
         (partition, sequence) -> String.format("value-%d-%d", partition, sequence).getBytes(UTF_8);
-    protected static final Generator<Boolean> BOOLEAN_GENERATOR =
+    public static final Generator<Boolean> BOOLEAN_GENERATOR =
         (partition, sequence) -> (partition * 100 + sequence) % 2 == 0 ? true : false;
-    protected static final Generator<Byte> BYTE_GENERATOR =
+    public static final Generator<Byte> BYTE_GENERATOR =
         (partition, sequence) -> (byte) (partition * 100 + sequence);
-    protected static final Generator<Short> SHORT_GENERATOR =
+    public static final Generator<Short> SHORT_GENERATOR =
         (partition, sequence) -> (short) (partition * 100 + sequence);
-    protected static final Generator<Integer> INTEGER_GENERATOR =
+    public static final Generator<Integer> INTEGER_GENERATOR =
         (partition, sequence) -> partition * 100 + sequence;
-    protected static final Generator<Long> LONG_GENERATOR =
+    public static final Generator<Long> LONG_GENERATOR =
         (partition, sequence) -> partition * 100L + sequence;
-    protected static final Generator<Float> FLOAT_GENERATOR =
+    public static final Generator<Float> FLOAT_GENERATOR =
         (partition, sequence) -> partition * 100.0f + sequence;
-    protected static final Generator<Double> DOUBLE_GENERATOR =
+    public static final Generator<Double> DOUBLE_GENERATOR =
         (partition, sequence) -> partition * 100.0d + sequence;
-    protected static final Generator<String> STRING_GENERATOR =
+    public static final Generator<String> STRING_GENERATOR =
         (partition, sequence) -> String.format("value-%d-%d", partition, sequence);
-    protected static final Generator<User> USER_GENERATOR =
+    public static final Generator<User> USER_GENERATOR =
         (partition, sequence) -> new User("user-" + partition, 10 * sequence);
 
     public PulsarProducerTestBase(PulsarService service) {

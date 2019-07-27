@@ -62,11 +62,17 @@ public abstract class PulsarProducerBase implements PulsarProducer {
             s -> {
                 while (true) {
                     try {
-                        return client.newProducer(s)
+                        log.info("Creating Producer for topic {} with schema {}",
+                            topic, schema.getSchemaInfo());
+
+                        Producer producer = client.newProducer(s)
                             .loadConf(producerConfig)
                             .topic(topic)
                             .messageRouter(messageRouter)
                             .create();
+                        log.info("Successfully created Producer for topic {} with schema {}",
+                            topic, schema.getSchemaInfo());
+                        return producer;
                     } catch (PulsarClientException pce) {
                         if (pce.getMessage() != null && pce.getMessage().contains(
                             "org.apache.zookeeper.KeeperException$BadVersionException: KeeperErrorCode = BadVersion")) {
