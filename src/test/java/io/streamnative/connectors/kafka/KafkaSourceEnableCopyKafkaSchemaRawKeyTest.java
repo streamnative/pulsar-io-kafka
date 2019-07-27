@@ -33,6 +33,7 @@ import io.streamnative.tests.pulsar.service.PulsarService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.OffsetResetStrategy;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.apache.kafka.common.serialization.Deserializer;
@@ -249,7 +250,8 @@ public class KafkaSourceEnableCopyKafkaSchemaRawKeyTest extends KafkaSourceTestB
         Schema<T> pulsarSchema, int numSources
     ) throws Exception {
         String topic = "test-enable-copy-kafka-schema-"
-            + pulsarSchema.getSchemaInfo().getType() + "-raw-key-" + Base58.randomString(8);
+            + pulsarSchema.getSchemaInfo().getType()
+            + "-raw-key-" + numSources + "-" + Base58.randomString(8);
 
         KafkaSourceConfig config = newKafkaSourceConfig();
         config.kafka().topic(topic);
@@ -257,6 +259,8 @@ public class KafkaSourceEnableCopyKafkaSchemaRawKeyTest extends KafkaSourceTestB
             .put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
         config.kafka().consumer()
             .put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, deserializerClass.getName());
+        config.kafka().consumer()
+            .put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, OffsetResetStrategy.EARLIEST.name().toLowerCase());
         config.pulsar().copy_kafka_schema(true);
 
         final int numPartitions = 10;

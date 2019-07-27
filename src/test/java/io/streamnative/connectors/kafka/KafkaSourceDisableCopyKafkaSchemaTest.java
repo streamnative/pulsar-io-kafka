@@ -32,6 +32,8 @@ import io.streamnative.tests.common.framework.SystemTestRunner.TestSuiteClass;
 import io.streamnative.tests.pulsar.service.PulsarService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.OffsetResetStrategy;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.apache.kafka.common.serialization.DoubleSerializer;
 import org.apache.kafka.common.serialization.FloatSerializer;
@@ -234,6 +236,12 @@ public class KafkaSourceDisableCopyKafkaSchemaTest extends KafkaSourceTestBase {
 
         KafkaSourceConfig config = newKafkaSourceConfig();
         config.kafka().topic(topic);
+        config.kafka().consumer()
+            .put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, serializer.getClass().getName());
+        config.kafka().consumer()
+            .put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, serializer.getClass().getName());
+        config.kafka().consumer()
+            .put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, OffsetResetStrategy.EARLIEST.name().toLowerCase());
         config.pulsar().copy_kafka_schema(false);
 
         final int numPartitions = 10;

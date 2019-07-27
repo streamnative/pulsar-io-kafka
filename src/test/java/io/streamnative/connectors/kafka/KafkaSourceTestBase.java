@@ -34,6 +34,7 @@ import io.streamnative.tests.pulsar.suites.PulsarServiceSystemTestCase;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 import lombok.Cleanup;
@@ -45,6 +46,7 @@ import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.Serializer;
 import org.apache.pulsar.client.api.Consumer;
@@ -245,7 +247,17 @@ public abstract class KafkaSourceTestBase extends PulsarServiceSystemTestCase {
                     keyGenerator.apply(i, j),
                     valueGenerator.apply(i, j)
                 );
-                kafkaProducer.send(record);
+                CompletableFuture<RecordMetadata> sendFuture = new CompletableFuture<>();
+                kafkaProducer.send(record, (metadata, exception) -> {
+                    if (null != exception) {
+                        sendFuture.completeExceptionally(exception);
+                    } else {
+                        sendFuture.complete(metadata);
+                    }
+                }).get();
+                RecordMetadata metadata = sendFuture.get();
+                log.info("Send message to Kafka topic {} : ({}, {}) - offset: {}",
+                    kafkaTopic, i, j, metadata.offset());
             }
         }
         kafkaProducer.flush();

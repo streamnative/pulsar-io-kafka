@@ -247,6 +247,11 @@ public class KafkaSource implements Source<byte[]> {
     private <K, V> Consumer<K, V> initializeKafkaConsumer(KafkaConsumerConfig config) {
         Properties props = new Properties();
         props.putAll(config.consumer());
+        // disable auto committing offsets
+        props.put(
+            ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG,
+            "false"
+        );
 
         return new KafkaConsumer<>(props);
     }
