@@ -29,7 +29,8 @@ import org.junit.runner.RunWith;
  */
 @RunWith(SystemTestSuite.class)
 @SuiteClasses({
-    KafkaSourceTest.class
+    KafkaSourceDisableCopyKafkaSchemaTest.class,
+    KafkaSourceOpenTest.class,
 })
 @Slf4j
 public class KafkaSourceTestSuite extends PulsarServiceTestSuite {

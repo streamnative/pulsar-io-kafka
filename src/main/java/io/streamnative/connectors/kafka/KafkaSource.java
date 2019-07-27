@@ -34,6 +34,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -72,6 +73,7 @@ import org.apache.pulsar.client.impl.conf.ConfigurationDataUtils;
 import org.apache.pulsar.client.impl.conf.ProducerConfigurationData;
 import org.apache.pulsar.client.impl.schema.StringSchema;
 import org.apache.pulsar.common.partition.PartitionedTopicMetadata;
+import org.apache.pulsar.common.schema.SchemaType;
 import org.apache.pulsar.functions.api.Record;
 import org.apache.pulsar.io.core.Source;
 import org.apache.pulsar.io.core.SourceContext;
@@ -120,16 +122,19 @@ public class KafkaSource implements Source<byte[]> {
             "The Pulsar settings are missing");
         config.pulsar().validate();
 
-        log.info("Opening the Kafka source with config : {}", config);
-
-        Schema keySchema = getPulsarSchemaAndReconfigureDeserializerClass(
+        Optional<Schema> keySchema = Optional.ofNullable(getPulsarSchemaAndReconfigureDeserializerClass(
+                config,
+                true
+            ));
+        Optional<Schema> valueSchema = Optional.ofNullable(
+            getPulsarSchemaAndReconfigureDeserializerClass(
+                config,
+                false
+            ));
+        log.info("Opening the Kafka source with config : {}\nkey schema = {}\nvalue schema = {}",
             config,
-            true
-        );
-        Schema valueSchema = getPulsarSchemaAndReconfigureDeserializerClass(
-            config,
-            false
-        );
+            keySchema.orElse(Schema.BYTES).getSchemaInfo(),
+            valueSchema.orElse(Schema.BYTES).getSchemaInfo());
 
         // create the pulsar client
         this.pulsarClient = PulsarClient.builder()
@@ -192,11 +197,11 @@ public class KafkaSource implements Source<byte[]> {
             TimeUnit.MICROSECONDS.toMillis(producerConf.getBatchingMaxPublishDelayMicros())
         );
 
-        if (keySchema == null) {
+        if (!keySchema.isPresent() || keySchema.get().getSchemaInfo().getType() == SchemaType.BYTES) {
             this.pulsarProducer = new RawKeySchemaValueProducer(
                 pulsarClient,
                 pulsarTopic,
-                valueSchema == null ? Schema.BYTES : valueSchema,
+                valueSchema.orElse(Schema.BYTES),
                 config.pulsar().producer(),
                 messageRouter
             );
@@ -205,8 +210,8 @@ public class KafkaSource implements Source<byte[]> {
             this.pulsarProducer = new MultiVersionKeyValueSchemaProducer(
                 pulsarClient,
                 pulsarTopic,
-                keySchema,
-                valueSchema == null ? Schema.BYTES : valueSchema,
+                keySchema.orElse(Schema.BYTES),
+                valueSchema.orElse(Schema.BYTES),
                 config.pulsar().producer(),
                 messageRouter,
                 kafkaSchemaManager
@@ -348,6 +353,7 @@ public class KafkaSource implements Source<byte[]> {
     }
 
     private void start() {
+        running = true;
         runnerThread = new Thread(() -> {
             log.info("Starting Kafka source to consume messages from Kafka topic {} ...", config.kafka().topic());
             kafkaConsumer.subscribe(Collections.singletonList(config.kafka().topic()));
@@ -362,10 +368,12 @@ public class KafkaSource implements Source<byte[]> {
                 log.warn("The KafkaFetchThread encountered exception, exiting", e);
                 return;
             }
+            log.info("Exited the Kafka fetch loop.");
         }, "KafkaFetchThread");
         runnerThread.setUncaughtExceptionHandler((t, e) ->
             log.error("[{}] Encountered uncaught exception", t.getName(), e));
         runnerThread.start();
+        log.info("Started KafkaFetchThread successfully");
     }
 
     private void consumeKafkaRecordsLoop() throws InterruptedException, ExecutionException {
