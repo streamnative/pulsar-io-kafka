@@ -56,7 +56,7 @@ public class RawKeySchemaValueProducer extends PulsarProducerBase {
         }
         Object recordValue = record.value();
         if (null != recordValue) {
-            msgBuilder = msgBuilder.value(record.value());
+            msgBuilder = msgBuilder.value(recordValue);
         }
         return msgBuilder.sendAsync();
     }

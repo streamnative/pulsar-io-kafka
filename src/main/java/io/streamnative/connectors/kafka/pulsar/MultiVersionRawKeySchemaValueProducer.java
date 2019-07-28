@@ -22,6 +22,7 @@ import io.streamnative.connectors.kafka.KafkaAvroSchema;
 import io.streamnative.connectors.kafka.KafkaSchemaAndBytes;
 import io.streamnative.connectors.kafka.KafkaSchemaManager;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -32,103 +33,105 @@ import org.apache.pulsar.client.api.MessageRouter;
 import org.apache.pulsar.client.api.PulsarClient;
 import org.apache.pulsar.client.api.PulsarClientException;
 import org.apache.pulsar.client.api.Schema;
-import org.apache.pulsar.common.schema.KeyValue;
 
 /**
- * Producer to handle multiple versions in key/value schemas.
+ * Producer for key without schema and value with schema.
  */
 @Slf4j
-public class MultiVersionKeyValueSchemaProducer implements PulsarProducer {
+@SuppressWarnings("unchecked")
+public class MultiVersionRawKeySchemaValueProducer implements PulsarProducer {
 
-    private final Schema keySchema;
-    private final boolean isKeyKafkaAvroSchema;
-    private final Schema valueSchema;
+    private final KafkaSchemaManager schemaManager;
     private final boolean isValueKafkaAvroSchema;
-    private final ConcurrentMap<KeyValue<Integer, Integer>, PulsarProducer> producers;
+    private final Schema valueSchema;
+    private final ConcurrentMap<Integer, PulsarProducer> producers;
     private final PulsarClient client;
     private final String topic;
     private final Map<String, Object> producerConfig;
     private final MessageRouter messageRouter;
-    private final KafkaSchemaManager schemaManager;
+    private final Optional<PulsarProducer> nullSchemaIdProducer;
 
-    public MultiVersionKeyValueSchemaProducer(PulsarClient client,
-                                              String topic,
-                                              Schema keySchema,
-                                              Schema valueSchema,
-                                              Map<String, Object> producerConfig,
-                                              MessageRouter messageRouter,
-                                              KafkaSchemaManager manager) {
-        this.producers = new ConcurrentHashMap<>();
-        this.keySchema = keySchema;
-        this.isKeyKafkaAvroSchema = keySchema instanceof KafkaAvroSchema;
+    public MultiVersionRawKeySchemaValueProducer(PulsarClient client,
+                                                 String topic,
+                                                 Schema valueSchema,
+                                                 Map<String, Object> producerConfig,
+                                                 MessageRouter messageRouter) throws PulsarClientException {
+        this(client, topic, valueSchema, producerConfig, messageRouter, null);
+    }
+
+    public MultiVersionRawKeySchemaValueProducer(PulsarClient client,
+                                                 String topic,
+                                                 Schema valueSchema,
+                                                 Map<String, Object> producerConfig,
+                                                 MessageRouter messageRouter,
+                                                 KafkaSchemaManager manager) throws PulsarClientException {
+        this.schemaManager = manager;
         this.valueSchema = valueSchema;
         this.isValueKafkaAvroSchema = valueSchema instanceof KafkaAvroSchema;
+        this.producers = new ConcurrentHashMap<>();
         this.client = client;
         this.topic = topic;
         this.producerConfig = producerConfig;
         this.messageRouter = messageRouter;
-        this.schemaManager = manager;
+        if (this.isValueKafkaAvroSchema) {
+            this.nullSchemaIdProducer = Optional.empty();
+        } else {
+            this.nullSchemaIdProducer = Optional.of(createPulsarProducer(null));
+        }
     }
 
     @Override
     public CompletableFuture<MessageId> send(ConsumerRecord<Object, Object> record) {
-        Object key = record.key();
-        Object value = record.value();
+        Object recordValue = record.value();
 
-        Integer keySchemaId = null;
-        if (isKeyKafkaAvroSchema) {
-            keySchemaId = ((KafkaSchemaAndBytes) key).getSchemaId();
-        }
-        Integer valueSchemaId = null;
+        final Integer valueSchemaId;
         if (isValueKafkaAvroSchema) {
-            valueSchemaId = ((KafkaSchemaAndBytes) value).getSchemaId();
+            valueSchemaId = ((KafkaSchemaAndBytes) recordValue).getSchemaId();
+        } else {
+            valueSchemaId = null;
         }
 
-        return producers.computeIfAbsent(
-            new KeyValue<>(keySchemaId, valueSchemaId),
-            kv -> {
-                try {
-                    return createPulsarProducer(kv);
-                } catch (PulsarClientException e) {
-                    throw new RuntimeException("Failed to create a pulsar producer for a given key/value schema", e);
+        return nullSchemaIdProducer.orElseGet(
+            () -> producers.computeIfAbsent(
+                valueSchemaId,
+                schemaId -> {
+                    try {
+                        return createPulsarProducer(valueSchemaId);
+                    } catch (PulsarClientException e) {
+                        throw new RuntimeException(
+                            "Failed to create pulsar producer for a given schema " + valueSchemaId, e);
+                    }
                 }
-            }
+            )
         ).send(record);
     }
 
-    private PulsarProducer createPulsarProducer(KeyValue<Integer, Integer> kvSchemaIds)
+    private PulsarProducer createPulsarProducer(Integer valueSchemaId)
         throws PulsarClientException {
-        Schema keySchema = this.keySchema;
         Schema valueSchema = this.valueSchema;
 
-        if (isKeyKafkaAvroSchema) {
-            KafkaAvroSchema keyAvroSchema = new KafkaAvroSchema();
-            keyAvroSchema.setAvroSchema(schemaManager.getKafkaSchema(kvSchemaIds.getKey()));
-            keySchema = keyAvroSchema;
-        }
         if (isValueKafkaAvroSchema) {
             KafkaAvroSchema valueAvroSchema = new KafkaAvroSchema();
-            valueAvroSchema.setAvroSchema(schemaManager.getKafkaSchema(kvSchemaIds.getValue()));
+            valueAvroSchema.setAvroSchema(schemaManager.getKafkaSchema(valueSchemaId));
             valueSchema = valueAvroSchema;
         }
 
         try {
-            return new KeyValueSchemaProducer(
+            return new RawKeySchemaValueProducer(
                 client,
                 topic,
-                keySchema,
                 valueSchema,
                 producerConfig,
                 messageRouter
             );
         } catch (PulsarClientException e) {
-            log.error("Failed to create a key/value producer with key schema = {}, value schema = {}",
-                keySchema.getSchemaInfo(),
+            log.error("Failed to create a producer with value schema = {}",
                 valueSchema.getSchemaInfo(),
                 e);
             throw e;
         }
     }
+
 
     @Override
     public void close() throws Exception {

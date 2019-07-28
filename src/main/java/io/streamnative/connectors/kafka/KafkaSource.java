@@ -23,8 +23,8 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import io.confluent.kafka.serializers.KafkaAvroDeserializer;
 import io.streamnative.connectors.kafka.KafkaSourceConfig.KafkaConsumerConfig;
 import io.streamnative.connectors.kafka.pulsar.MultiVersionKeyValueSchemaProducer;
+import io.streamnative.connectors.kafka.pulsar.MultiVersionRawKeySchemaValueProducer;
 import io.streamnative.connectors.kafka.pulsar.PulsarProducer;
-import io.streamnative.connectors.kafka.pulsar.RawKeySchemaValueProducer;
 import io.streamnative.connectors.kafka.schema.KafkaBytesSchema;
 import java.nio.charset.Charset;
 import java.time.Duration;
@@ -197,16 +197,22 @@ public class KafkaSource implements Source<byte[]> {
             TimeUnit.MICROSECONDS.toMillis(producerConf.getBatchingMaxPublishDelayMicros())
         );
 
+        final KafkaSchemaManager kafkaSchemaManager;
+        if (config.kafka.schema() != null) {
+            kafkaSchemaManager = new KafkaSchemaManager(null, config.kafka().schema());
+        } else {
+            kafkaSchemaManager = null;
+        }
         if (!keySchema.isPresent() || keySchema.get().getSchemaInfo().getType() == SchemaType.BYTES) {
-            this.pulsarProducer = new RawKeySchemaValueProducer(
+            this.pulsarProducer = new MultiVersionRawKeySchemaValueProducer(
                 pulsarClient,
                 pulsarTopic,
                 valueSchema.orElse(Schema.BYTES),
                 config.pulsar().producer(),
-                messageRouter
+                messageRouter,
+                kafkaSchemaManager
             );
         } else {
-            KafkaSchemaManager kafkaSchemaManager = new KafkaSchemaManager(null, config.kafka().schema());
             this.pulsarProducer = new MultiVersionKeyValueSchemaProducer(
                 pulsarClient,
                 pulsarTopic,
