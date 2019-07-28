@@ -131,9 +131,11 @@ public class KafkaSource implements Source<byte[]> {
                 config,
                 false
             ));
-        log.info("Opening the Kafka source with config : {}\nkey schema = {}\nvalue schema = {}",
+        log.info("Opening the Kafka source with config : {}\nkey schema = {}({})\nvalue schema = {}({})",
             config,
+            keySchema.orElse(Schema.BYTES).getClass().getSimpleName(),
             keySchema.orElse(Schema.BYTES).getSchemaInfo(),
+            valueSchema.orElse(Schema.BYTES).getClass().getSimpleName(),
             valueSchema.orElse(Schema.BYTES).getSchemaInfo());
 
         // create the pulsar client
@@ -203,7 +205,10 @@ public class KafkaSource implements Source<byte[]> {
         } else {
             kafkaSchemaManager = null;
         }
-        if (!keySchema.isPresent() || keySchema.get().getSchemaInfo().getType() == SchemaType.BYTES) {
+        if (!keySchema.isPresent()
+            || (!(keySchema.get() instanceof KafkaAvroSchema)
+                && keySchema.get().getSchemaInfo().getType() == SchemaType.BYTES)) {
+            log.info("Creating a Pulsar value producer manager.");
             this.pulsarProducer = new MultiVersionRawKeySchemaValueProducer(
                 pulsarClient,
                 pulsarTopic,
@@ -212,7 +217,9 @@ public class KafkaSource implements Source<byte[]> {
                 messageRouter,
                 kafkaSchemaManager
             );
+            log.info("Successfully created a Pulsar value producer manager.");
         } else {
+            log.info("Creating a Pulsar key/value producer manager.");
             this.pulsarProducer = new MultiVersionKeyValueSchemaProducer(
                 pulsarClient,
                 pulsarTopic,
@@ -222,6 +229,7 @@ public class KafkaSource implements Source<byte[]> {
                 messageRouter,
                 kafkaSchemaManager
             );
+            log.info("Successfully created a Pulsar key/value producer manager.");
         }
 
         // start the Kafka fetch thread

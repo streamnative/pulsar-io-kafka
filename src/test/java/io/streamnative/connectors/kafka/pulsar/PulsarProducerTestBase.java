@@ -19,13 +19,21 @@
 package io.streamnative.connectors.kafka.pulsar;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 
+import io.streamnative.connectors.kafka.KafkaSchemaAndBytes;
 import io.streamnative.tests.pulsar.service.PulsarService;
 import io.streamnative.tests.pulsar.suites.PulsarServiceSystemTestCase;
+import java.nio.ByteBuffer;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import org.apache.avro.Schema;
+import org.apache.avro.generic.GenericData.Record;
+import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.reflect.AvroDefault;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.record.TimestampType;
@@ -59,6 +67,24 @@ public class PulsarProducerTestBase extends PulsarServiceSystemTestCase {
         int age;
         @AvroDefault(value = "\"0\"")
         Double gpa;
+    }
+
+    /**
+     * A decoder to decode a value from a given partition to an object.
+     */
+    public interface AvroValueDecoder {
+
+        Object decode(int partition, int sequence, byte[] data);
+
+    }
+
+    /**
+     * A verifier to verify a value from a given partition.
+     */
+    public interface AvroValueVerifier<V> {
+
+        void verify(int partition, int sequence, V value);
+
     }
 
     public static final AvroSchema<User> PULSAR_USER_SCHEMA = AvroSchema.of(
@@ -101,7 +127,128 @@ public class PulsarProducerTestBase extends PulsarServiceSystemTestCase {
     public static final Generator<String> STRING_GENERATOR =
         (partition, sequence) -> String.format("value-%d-%d", partition, sequence);
     public static final Generator<User> USER_GENERATOR =
-        (partition, sequence) -> new User("user-" + partition, 10 * sequence);
+        (partition, sequence) -> {
+            if (sequence % 2 == 0) {
+                return new User("user-" + partition + "-" + sequence, 10 * sequence);
+            } else {
+                return new User(
+                    "student-" + partition + "-" + sequence,
+                    10 * sequence
+                );
+            }
+        };
+    public static final Generator<Student> STUDENT_GENERATOR =
+        (partition, sequence) -> {
+            if (sequence % 2 == 0) {
+                return new Student(
+                    "user-" + partition + "-" + sequence,
+                    10 * sequence,
+                    (double) 0
+                );
+            } else {
+                return new Student(
+                    "student-" + partition + "-" + sequence,
+                    10 * sequence,
+                    1.0d * sequence
+                );
+            }
+        };
+    public static final Generator<Object> AVRO_OBJECT_GENERATOR =
+        (partition, sequence) -> {
+            if (sequence % 2 == 0) {
+                return USER_GENERATOR.apply(partition, sequence);
+            } else {
+                return STUDENT_GENERATOR.apply(partition, sequence);
+            }
+        };
+    public static final Generator<Object> AVRO_GENERIC_RECORD_GENERATOR =
+        (partition, sequence) -> {
+            GenericRecord record;
+            if (sequence % 2 == 0) {
+                User user = USER_GENERATOR.apply(partition, sequence);
+                record = new Record(AVRO_USER_SCHEMA);
+                record.put("name", user.name);
+                record.put("age", user.age);
+            } else {
+                Student student = STUDENT_GENERATOR.apply(partition, sequence);
+                record = new Record(AVRO_STUDENT_SCHEMA);
+                record.put("name", student.name);
+                record.put("age", student.age);
+                record.put("gpa", student.gpa);
+            }
+            return record;
+        };
+    public static final AvroValueDecoder AVRO_VALUE_DECODER =
+        (partition, sequence, bytes) -> {
+            if (sequence % 2 == 0) {
+                return PULSAR_USER_SCHEMA.decode(bytes);
+            } else {
+                return PULSAR_STUDENT_SCHEMA.decode(bytes);
+            }
+        };
+    public static final AvroValueVerifier<org.apache.pulsar.client.api.schema.GenericRecord> AVRO_VALUE_VERIFIER =
+        (partition, sequence, record) -> {
+            if (sequence % 2 == 0) {
+                assertEquals(
+                    "user-" + partition + "-" + sequence,
+                    record.getField("name")
+                );
+                assertEquals(
+                    10 * sequence,
+                    record.getField("age")
+                );
+            } else {
+                assertEquals(
+                    "student-" + partition + "-" + sequence,
+                    record.getField("name")
+                );
+                assertEquals(
+                    10 * sequence,
+                    record.getField("age")
+                );
+                assertEquals(
+                    1.0d * sequence,
+                    record.getField("gpa")
+                );
+            }
+        };
+
+    /**
+     * A generator to generate users and students.
+     */
+    @RequiredArgsConstructor
+    public static class MultiVersionGenerator implements Generator<KafkaSchemaAndBytes> {
+
+        private final int userSchemaId;
+        private final int studentSchemaId;
+
+        @Override
+        public KafkaSchemaAndBytes apply(int partition, int sequence) {
+            if (sequence % 2 == 0) {
+                User user = new User(
+                    "user-" + partition + "-" + sequence,
+                    10 * sequence
+                );
+                byte[] userData = PULSAR_USER_SCHEMA.encode(user);
+                return new KafkaSchemaAndBytes(
+                    userSchemaId,
+                    ByteBuffer.wrap(userData)
+                );
+            } else {
+                Student student = new Student(
+                    "student-" + partition + "-" + sequence,
+                    10 * sequence,
+                    1.0d * sequence
+                );
+                byte[] studentData = PULSAR_STUDENT_SCHEMA.encode(student);
+                return new KafkaSchemaAndBytes(
+                    studentSchemaId,
+                    ByteBuffer.wrap(studentData)
+                );
+            }
+        }
+
+    }
 
     public PulsarProducerTestBase(PulsarService service) {
         super(service);
@@ -126,6 +273,62 @@ public class PulsarProducerTestBase extends PulsarServiceSystemTestCase {
         );
     }
 
+    public static void verifyMultiVersionData(int partition,
+                                              int sequence,
+                                              byte[] data,
+                                              org.apache.pulsar.client.api.Schema<?> schema,
+                                        Generator<?> generator) {
+        if (generator instanceof MultiVersionGenerator) {
+            // this is a multi version generator
+            if (sequence % 2 == 0) {
+                User user = PULSAR_USER_SCHEMA.decode(data);
+                User expectedUser = new User(
+                    "user-" + partition + "-" + sequence,
+                    10 * sequence
+                );
+                assertEquals(
+                    expectedUser,
+                    user
+                );
+            } else {
+                Student student = PULSAR_STUDENT_SCHEMA.decode(data);
+                Student expectedStudent = new Student(
+                    "student-" + partition + "-" + sequence,
+                    10 * sequence,
+                    1.0d * sequence
+                );
+                assertEquals(
+                    expectedStudent,
+                    student
+                );
+            }
+        } else {
+            assertValueEquals(
+                partition, sequence,
+                generator,
+                schema.decode(data)
+            );
+        }
+
+    }
+
+    public static void assertValueEquals(int partition, int sequence, Generator<?> generator, Object actualValue) {
+        if (null == generator) {
+            assertNull(actualValue);
+        } else {
+            if (actualValue instanceof byte[]) {
+                assertArrayEquals(
+                    (byte[]) generator.apply(partition, sequence),
+                    (byte[]) actualValue
+                );
+            } else {
+                assertEquals(
+                    generator.apply(partition, sequence),
+                    actualValue
+                );
+            }
+        }
+    }
 
 
 }

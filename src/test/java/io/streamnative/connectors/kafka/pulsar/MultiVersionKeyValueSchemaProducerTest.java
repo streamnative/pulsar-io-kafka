@@ -19,10 +19,8 @@
 package io.streamnative.connectors.kafka.pulsar;
 
 import static org.apache.pulsar.common.naming.TopicName.PUBLIC_TENANT;
-import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
 
 import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
@@ -134,24 +132,6 @@ public class MultiVersionKeyValueSchemaProducerTest extends PulsarProducerTestBa
         KeyValue<K, V> kv = pulsarMessage.getValue();
         assertValueEquals(partition, i, keyGenerator, kv.getKey());
         assertValueEquals(partition, i, valueGenerator, kv.getValue());
-    }
-
-    private void assertValueEquals(int partition, int sequence, Generator<?> generator, Object actualValue) {
-        if (null == generator) {
-            assertNull(actualValue);
-        } else {
-            if (actualValue instanceof byte[]) {
-                assertArrayEquals(
-                    (byte[]) generator.apply(partition, sequence),
-                    (byte[]) actualValue
-                );
-            } else {
-                assertEquals(
-                    generator.apply(partition, sequence),
-                    actualValue
-                );
-            }
-        }
     }
 
     @Test
@@ -593,44 +573,6 @@ public class MultiVersionKeyValueSchemaProducerTest extends PulsarProducerTestBa
                     valueGenerator
                 );
             }
-        }
-    }
-
-    private void verifyMultiVersionData(int partition,
-                                        int sequence,
-                                        byte[] data,
-                                        Schema<?> schema,
-                                        Generator<?> generator) {
-        if (generator instanceof MultiVersionGenerator) {
-            // this is a multi version generator
-            if (sequence % 2 == 0) {
-                User user = PULSAR_USER_SCHEMA.decode(data);
-                User expectedUser = new User(
-                    "user-" + partition + "-" + sequence,
-                    10 * sequence
-                );
-                assertEquals(
-                    expectedUser,
-                    user
-                );
-            } else {
-                Student student = PULSAR_STUDENT_SCHEMA.decode(data);
-                Student expectedStudent = new Student(
-                    "student-" + partition + "-" + sequence,
-                    10 * sequence,
-                    1.0d * sequence
-                );
-                assertEquals(
-                    expectedStudent,
-                    student
-                );
-            }
-        } else {
-            assertValueEquals(
-                partition, sequence,
-                generator,
-                schema.decode(data)
-            );
         }
     }
 

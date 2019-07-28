@@ -176,6 +176,10 @@ public abstract class KafkaSourceTestBase extends PulsarServiceSystemTestCase {
             ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
             kafkaServiceUri.getServiceHosts()[0]
         );
+        kafkaProducerConfigMap.put(
+            KafkaSchemaManagerConfig.SCHEMA_REGISTRY_URL_CONFIG,
+            schemaRegistryServiceUri.getUri().toString()
+        );
 
         return new KafkaProducer<>(
             kafkaProducerConfigMap

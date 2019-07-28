@@ -112,6 +112,11 @@ public class MultiVersionKeyValueSchemaProducer implements PulsarProducer {
             valueSchema = valueAvroSchema;
         }
 
+        log.info("Fetch Kafka key/value schema for topic {}: schemaId = ({}, {}), key schema = {}, value schema = {}",
+            topic,
+            kvSchemaIds.getKey(), kvSchemaIds.getValue(),
+            keySchema.getSchemaInfo(), valueSchema.getSchemaInfo());
+
         try {
             return new KeyValueSchemaProducer(
                 client,
