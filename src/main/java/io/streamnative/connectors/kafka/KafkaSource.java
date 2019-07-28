@@ -26,6 +26,7 @@ import io.streamnative.connectors.kafka.pulsar.MultiVersionKeyValueSchemaProduce
 import io.streamnative.connectors.kafka.pulsar.MultiVersionRawKeySchemaValueProducer;
 import io.streamnative.connectors.kafka.pulsar.PulsarProducer;
 import io.streamnative.connectors.kafka.schema.KafkaBytesSchema;
+import io.streamnative.connectors.kafka.schema.KafkaJsonSchema;
 import java.nio.charset.Charset;
 import java.time.Duration;
 import java.util.Collections;
@@ -62,6 +63,7 @@ import org.apache.kafka.common.serialization.IntegerDeserializer;
 import org.apache.kafka.common.serialization.LongDeserializer;
 import org.apache.kafka.common.serialization.ShortDeserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
+import org.apache.kafka.connect.json.JsonDeserializer;
 import org.apache.pulsar.client.admin.PulsarAdmin;
 import org.apache.pulsar.client.admin.PulsarAdminException;
 import org.apache.pulsar.client.api.HashingScheme;
@@ -328,6 +330,8 @@ public class KafkaSource implements Source<byte[]> {
             return Schema.INT64;
         } else if (ShortDeserializer.class.equals(kafkaDeserializerClass)) {
             return Schema.INT16;
+        } else if (JsonDeserializer.class.equals(kafkaDeserializerClass)) {
+            return new KafkaJsonSchema();
         } else if (KafkaAvroDeserializer.class.equals(kafkaDeserializerClass)) {
             if (config.kafka().schema() == null) {
                 // if kafka schema registry is configured, just transfer the raw bytes.
