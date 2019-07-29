@@ -45,6 +45,54 @@ import org.apache.pulsar.io.core.annotations.FieldDoc;
 @Slf4j
 public class KafkaSourceConfig {
 
+    /**
+     * The type of json schema provider.
+     */
+    public enum JsonSchemaProvider {
+
+        // the schema is nested in the json content. the json data generated from
+        // Kafka Connect usually carries the schema.
+        INLINE,
+
+        // the schema is provided in the config. the schema is a 'json' string
+        // written in Avro schema specification.
+        CONFIG,
+
+        // the schema is provided by the Pulsar topic.
+        PULSAR
+
+    }
+
+    /**
+     * The configuration for Kafka schema.
+     */
+    @Data
+    @Accessors(fluent = true)
+    @NoArgsConstructor
+    @AllArgsConstructor
+    static class KafkaSchemaConfig {
+
+        //CHECKSTYLE.OFF: MemberName
+        @FieldDoc(
+            defaultValue = "",
+            help = "The kafka schema registry properties")
+        public Map<String, Object> schema_registry;
+
+        @FieldDoc(
+            defaultValue = "CONFIG",
+            help = "The json schema provider type. Available types : INLINE, CONFIG, PULSAR"
+        )
+        public JsonSchemaProvider json_schema_provider = JsonSchemaProvider.CONFIG;
+
+        @FieldDoc(
+            defaultValue = "",
+            help = "The schema definition written in json format using Avro specification."
+                + " This schema definition is only used when `json_schema_provider` is configured to `CONFIG` provider"
+        )
+        public String schema;
+        //CHECKSTYLE.ON: MemberName
+    }
+
     @SuppressWarnings("unchecked")
     public Map<String, Object> toConfigMap() throws IOException {
         ObjectMapper mapper = new ObjectMapper();
@@ -72,15 +120,16 @@ public class KafkaSourceConfig {
             defaultValue = "1000",
             help = "The Kafka consumer poll duration in milliseconds.")
         public long poll_duration_ms = 1000;
+        //CHECKSTYLE.ON: MemberName
         @FieldDoc(
             defaultValue = "",
             help = "The consumer config properties to be passed to a Kafka consumer.")
         public Map<String, Object> consumer;
+
         @FieldDoc(
             defaultValue = "",
-            help = "The kafka schema registry properties")
-        public Map<String, Object> schema_registry;
-        //CHECKSTYLE.ON: MemberName
+            help = "The config properties for interpreting Kafka schema")
+        public KafkaSchemaConfig schema = new KafkaSchemaConfig();
 
         public void validate() {
             Objects.requireNonNull(
