@@ -70,7 +70,7 @@ public class KafkaSourceRawKeyAvroSchemaValueTest extends KafkaSourceAvroSchemaT
             KafkaSchemaManagerConfig.SCHEMA_REGISTRY_URL_CONFIG,
             schemaRegistryServiceUri.getUri().toString()
         );
-        config.kafka().schema(schemaRegistryConfigMap);
+        config.kafka().schema_registry(schemaRegistryConfigMap);
         config.pulsar().copy_kafka_schema(true);
 
         final int numPartitions = 10;

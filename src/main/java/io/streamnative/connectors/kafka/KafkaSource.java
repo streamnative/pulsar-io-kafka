@@ -202,8 +202,8 @@ public class KafkaSource implements Source<byte[]> {
         );
 
         final KafkaSchemaManager kafkaSchemaManager;
-        if (config.kafka.schema() != null) {
-            kafkaSchemaManager = new KafkaSchemaManager(null, config.kafka().schema());
+        if (config.kafka.schema_registry() != null) {
+            kafkaSchemaManager = new KafkaSchemaManager(null, config.kafka().schema_registry());
         } else {
             kafkaSchemaManager = null;
         }
@@ -333,7 +333,7 @@ public class KafkaSource implements Source<byte[]> {
         } else if (JsonDeserializer.class.equals(kafkaDeserializerClass)) {
             return new KafkaJsonSchema();
         } else if (KafkaAvroDeserializer.class.equals(kafkaDeserializerClass)) {
-            if (config.kafka().schema() == null) {
+            if (config.kafka().schema_registry() == null) {
                 // if kafka schema registry is configured, just transfer the raw bytes.
                 log.info("Kafka schema registry is not defined. Configure `"
                     + deserializerClassKey + "` to " + ByteArrayDeserializer.class.getName());

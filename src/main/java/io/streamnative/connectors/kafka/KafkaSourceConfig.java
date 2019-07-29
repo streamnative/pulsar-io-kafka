@@ -72,7 +72,6 @@ public class KafkaSourceConfig {
             defaultValue = "1000",
             help = "The Kafka consumer poll duration in milliseconds.")
         public long poll_duration_ms = 1000;
-        //CHECKSTYLE.ON: MemberName
         @FieldDoc(
             defaultValue = "",
             help = "The consumer config properties to be passed to a Kafka consumer.")
@@ -80,7 +79,8 @@ public class KafkaSourceConfig {
         @FieldDoc(
             defaultValue = "",
             help = "The kafka schema registry properties")
-        public Map<String, Object> schema;
+        public Map<String, Object> schema_registry;
+        //CHECKSTYLE.ON: MemberName
 
         public void validate() {
             Objects.requireNonNull(
