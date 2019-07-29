@@ -24,9 +24,9 @@ import static org.junit.Assert.assertFalse;
 
 import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
-import io.streamnative.connectors.kafka.KafkaSchemaManager;
-import io.streamnative.connectors.kafka.KafkaSchemaManagerConfig;
 import io.streamnative.connectors.kafka.schema.KafkaAvroSchema;
+import io.streamnative.connectors.kafka.schema.KafkaAvroSchemaManager;
+import io.streamnative.connectors.kafka.schema.KafkaAvroSchemaManagerConfig;
 import io.streamnative.tests.common.framework.SystemTestRunner;
 import io.streamnative.tests.common.framework.SystemTestRunner.TestSuiteClass;
 import io.streamnative.tests.pulsar.service.PulsarService;
@@ -63,7 +63,7 @@ import org.junit.runner.RunWith;
 public class MultiVersionRawKeySchemaValueProducerTest extends PulsarProducerTestBase {
 
     private final SchemaRegistryClient schemaRegistry;
-    private final KafkaSchemaManager schemaManager;
+    private final KafkaAvroSchemaManager schemaManager;
 
     public MultiVersionRawKeySchemaValueProducerTest(PulsarService service) {
         super(service);
@@ -71,8 +71,8 @@ public class MultiVersionRawKeySchemaValueProducerTest extends PulsarProducerTes
         HashMap<String, String> schemaManagerConfig = new HashMap<>();
         // Intentionally invalid schema registry URL to satisfy the config class's requirement that
         // it be set.
-        schemaManagerConfig.put(KafkaSchemaManagerConfig.SCHEMA_REGISTRY_URL_CONFIG, "bogus");
-        this.schemaManager = new KafkaSchemaManager(
+        schemaManagerConfig.put(KafkaAvroSchemaManagerConfig.SCHEMA_REGISTRY_URL_CONFIG, "bogus");
+        this.schemaManager = new KafkaAvroSchemaManager(
             schemaRegistry,
             schemaManagerConfig
         );

@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package io.streamnative.connectors.kafka;
+package io.streamnative.connectors.kafka.schema;
 
 import io.confluent.common.config.ConfigDef;
 import io.confluent.kafka.serializers.AbstractKafkaAvroSerDeConfig;
@@ -25,11 +25,11 @@ import java.util.Map;
 /**
  * Kafka schema manager configuration.
  */
-public class KafkaSchemaManagerConfig extends AbstractKafkaAvroSerDeConfig {
+public class KafkaAvroSchemaManagerConfig extends AbstractKafkaAvroSerDeConfig {
 
     private static ConfigDef config = baseConfigDef();
 
-    public KafkaSchemaManagerConfig(Map<?, ?> props) {
+    public KafkaAvroSchemaManagerConfig(Map<?, ?> props) {
         super(config, props);
     }
 }

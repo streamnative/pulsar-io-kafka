@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package io.streamnative.connectors.kafka;
+package io.streamnative.connectors.kafka.schema;
 
 
 import io.confluent.kafka.schemaregistry.client.CachedSchemaRegistryClient;
@@ -35,13 +35,13 @@ import org.apache.kafka.common.errors.SerializationException;
  * A manager to manage Kafka schemas and convert Kafka schema to Pulsar schema.
  */
 @Slf4j
-public class KafkaSchemaManager implements AutoCloseable {
+public class KafkaAvroSchemaManager implements AutoCloseable {
 
     private final SchemaRegistryClient client;
     private final ConcurrentMap<Integer, Schema> kafkaSchemas = new ConcurrentHashMap<>();
 
-    public KafkaSchemaManager(SchemaRegistryClient client,
-                              Map<String, ?> props) {
+    public KafkaAvroSchemaManager(SchemaRegistryClient client,
+                                  Map<String, ?> props) {
 
         if (null == client) {
             this.client = configureSchemaRegistryClient(deserializerConfig(props));
@@ -65,11 +65,11 @@ public class KafkaSchemaManager implements AutoCloseable {
     public void close() {
     }
 
-    protected static KafkaSchemaManagerConfig deserializerConfig(Map<String, ?> props) {
-        return new KafkaSchemaManagerConfig(props);
+    protected static KafkaAvroSchemaManagerConfig deserializerConfig(Map<String, ?> props) {
+        return new KafkaAvroSchemaManagerConfig(props);
     }
 
-    protected static CachedSchemaRegistryClient configureSchemaRegistryClient(KafkaSchemaManagerConfig config) {
+    protected static CachedSchemaRegistryClient configureSchemaRegistryClient(KafkaAvroSchemaManagerConfig config) {
         List<String> urls = config.getSchemaRegistryUrls();
         int maxSchemaObject = config.getMaxSchemasPerSubject();
         Map<String, Object> originals = config.originalsWithPrefix("");

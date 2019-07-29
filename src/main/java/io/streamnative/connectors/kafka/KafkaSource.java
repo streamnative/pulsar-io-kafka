@@ -27,6 +27,7 @@ import io.streamnative.connectors.kafka.pulsar.MultiVersionKeyValueSchemaProduce
 import io.streamnative.connectors.kafka.pulsar.MultiVersionRawKeySchemaValueProducer;
 import io.streamnative.connectors.kafka.pulsar.PulsarProducer;
 import io.streamnative.connectors.kafka.schema.KafkaAvroSchema;
+import io.streamnative.connectors.kafka.schema.KafkaAvroSchemaManager;
 import io.streamnative.connectors.kafka.schema.KafkaBytesSchema;
 import io.streamnative.connectors.kafka.schema.KafkaJsonSchema;
 import io.streamnative.connectors.kafka.serde.KafkaSchemaAndBytesDeserializer;
@@ -204,11 +205,11 @@ public class KafkaSource implements Source<byte[]> {
             TimeUnit.MICROSECONDS.toMillis(producerConf.getBatchingMaxPublishDelayMicros())
         );
 
-        final KafkaSchemaManager kafkaSchemaManager;
+        final KafkaAvroSchemaManager kafkaAvroSchemaManager;
         if (config.kafka.schema().schema_registry() != null) {
-            kafkaSchemaManager = new KafkaSchemaManager(null, config.kafka().schema().schema_registry());
+            kafkaAvroSchemaManager = new KafkaAvroSchemaManager(null, config.kafka().schema().schema_registry());
         } else {
-            kafkaSchemaManager = null;
+            kafkaAvroSchemaManager = null;
         }
         if (!keySchema.isPresent()
             || (!(keySchema.get() instanceof KafkaAvroSchema)
@@ -220,7 +221,7 @@ public class KafkaSource implements Source<byte[]> {
                 valueSchema.orElse(Schema.BYTES),
                 config.pulsar().producer(),
                 messageRouter,
-                kafkaSchemaManager
+                kafkaAvroSchemaManager
             );
             log.info("Successfully created a Pulsar value producer manager.");
         } else {
@@ -232,7 +233,7 @@ public class KafkaSource implements Source<byte[]> {
                 valueSchema.orElse(Schema.BYTES),
                 config.pulsar().producer(),
                 messageRouter,
-                kafkaSchemaManager
+                kafkaAvroSchemaManager
             );
             log.info("Successfully created a Pulsar key/value producer manager.");
         }

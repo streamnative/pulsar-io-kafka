@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package io.streamnative.connectors.kafka;
+package io.streamnative.connectors.kafka.schema;
 
 import static io.streamnative.connectors.kafka.AvroTestSchemas.USER_SCHEMA;
 import static org.junit.Assert.assertEquals;
@@ -29,24 +29,24 @@ import org.apache.kafka.common.errors.SerializationException;
 import org.junit.Test;
 
 /**
- * Unit test {@link KafkaSchemaManager}.
+ * Unit test {@link KafkaAvroSchemaManager}.
  */
-public class KafkaSchemaManagerTest {
+public class KafkaAvroSchemaManagerTest {
 
     private final String topic;
     private final SchemaRegistryClient schemaRegistry;
-    private final KafkaSchemaManager schemaManager;
+    private final KafkaAvroSchemaManager schemaManager;
 
-    public KafkaSchemaManagerTest() {
+    public KafkaAvroSchemaManagerTest() {
         this.topic = "test";
         this.schemaRegistry = new MockSchemaRegistryClient();
 
         HashMap<String, String> schemaManagerConfig = new HashMap<>();
         // Intentionally invalid schema registry URL to satisfy the config class's requirement that
         // it be set.
-        schemaManagerConfig.put(KafkaSchemaManagerConfig.SCHEMA_REGISTRY_URL_CONFIG, "bogus");
+        schemaManagerConfig.put(KafkaAvroSchemaManagerConfig.SCHEMA_REGISTRY_URL_CONFIG, "bogus");
 
-        this.schemaManager = new KafkaSchemaManager(
+        this.schemaManager = new KafkaAvroSchemaManager(
             schemaRegistry,
             schemaManagerConfig
         );
