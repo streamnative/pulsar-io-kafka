@@ -18,29 +18,20 @@
  */
 package io.streamnative.connectors.kafka.schema;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static io.streamnative.connectors.kafka.pulsar.PulsarProducerTestBase.AVRO_USER_SCHEMA;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertSame;
 
 import io.confluent.connect.avro.AvroData;
-import io.streamnative.connectors.kafka.serde.KafkaConnectDataDeserializer;
+import io.streamnative.connectors.kafka.KafkaSourceConfig.ConverterType;
+import io.streamnative.connectors.kafka.pulsar.PulsarProducerTestBase.User;
 import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.kafka.connect.data.Schema;
-import org.apache.kafka.connect.data.SchemaAndValue;
-import org.apache.kafka.connect.data.SchemaBuilder;
-import org.apache.kafka.connect.data.Struct;
-import org.apache.kafka.connect.errors.DataException;
-import org.apache.kafka.connect.json.JsonConverter;
-import org.apache.kafka.connect.storage.ConverterType;
+import org.apache.pulsar.client.api.Schema;
 import org.apache.pulsar.client.api.schema.GenericRecord;
+import org.apache.pulsar.client.api.schema.SchemaDefinition;
 import org.apache.pulsar.common.schema.SchemaInfo;
 import org.apache.pulsar.common.schema.SchemaType;
-import org.apache.pulsar.common.util.ObjectMapperFactory;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -50,143 +41,67 @@ import org.junit.Test;
 @Slf4j
 public class KafkaJsonSchemaTest {
 
-    /**
-     * Test Struct.
-     */
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class TestStruct {
-        public int intField;
-        public String strField;
-    }
-
     private final KafkaJsonSchema jsonSchema;
-    private final KafkaConnectDataDeserializer deserializer;
     private final AvroData avroData;
+    private final Schema<User> userJsonSchema = Schema.JSON(
+        SchemaDefinition.<User>builder()
+            .withPojo(User.class)
+            .withAlwaysAllowNull(false)
+            .withSupportSchemaVersioning(true)
+            .build());
 
     public KafkaJsonSchemaTest() {
-        deserializer = new KafkaConnectDataDeserializer();
         jsonSchema = new KafkaJsonSchema();
         avroData = new AvroData(1000);
     }
 
     @Before
     public void setup() {
-        deserializer.configure(Collections.emptyMap(), false);
-    }
-
-    @Test(expected = DataException.class)
-    public void testJsonDataWithoutSchema() throws Exception {
-        TestStruct testStruct = new TestStruct(
-            32,
-            "value-32"
-        );
-        byte[] dataBytes = ObjectMapperFactory.getThreadLocal().writeValueAsBytes(testStruct);
-        deserializer.deserialize("test-topic", dataBytes);
     }
 
     @Test
     public void testJsonConverter() throws Exception {
-        Schema schema = SchemaBuilder.struct()
-            .field("intField", SchemaBuilder.int32().optional())
-            .field("strField", SchemaBuilder.string().optional())
-            .build();
-        Struct struct = new Struct(schema)
-            .put("intField", 32)
-            .put("strField", "value-32");
-        SchemaAndValue data = new SchemaAndValue(
-            schema,
-            struct
-        );
-
-        org.apache.avro.Schema avroSchema = avroData.fromConnectSchema(data.schema());
-        log.info("Avro Schema : {}", avroSchema);
-
-        // write to json bytes
-        jsonSchema.setAvroSchema(deserializer.getConverter(), null, avroSchema);
-        byte[] jsonBytes = jsonSchema.encode(data);
-
-        // deserialize json bytes to `SchemaAndValue`
-        SchemaAndValue value = deserializer.deserialize("test-topic", jsonBytes);
-        assertEquals(
-            "\nExpect schema : " + avroData.fromConnectSchema(schema) + "\n"
-                + "Actual schema : " + avroData.fromConnectSchema(value.schema()),
-            avroData.fromConnectSchema(schema),
-            avroData.fromConnectSchema(value.schema())
-        );
-        Struct actualStruct = (Struct) value.value();
-        assertEquals(
-            32, actualStruct.getInt32("intField").intValue());
-        assertEquals(
-            "value-32", actualStruct.getString("strField"));
-
-        // encode connect data without schema
-        JsonConverter converterWithoutSchema = new JsonConverter();
-        Map<String, Object> config = new HashMap<>();
-        config.put("schemas.enable", false);
-        config.put("converter.type", ConverterType.VALUE.getName());
-        converterWithoutSchema.configure(config);
         jsonSchema.setAvroSchema(
-            converterWithoutSchema, null, avroSchema
+            false,
+            avroData,
+            AVRO_USER_SCHEMA,
+            KafkaJsonSchemaManager.getConverter(ConverterType.JSON, false)
         );
-        byte[] jsonBytesWithoutSchema = jsonSchema.encode(value);
-        TestStruct testStruct = ObjectMapperFactory.getThreadLocal()
-            .readValue(jsonBytesWithoutSchema, TestStruct.class);
-        assertEquals(32, testStruct.intField);
-        assertEquals("value-32", testStruct.strField);
+
+        User user = new User("user-1", 100);
+        byte[] data = userJsonSchema.encode(user);
+        byte[] encodedData = jsonSchema.encode(data);
+        assertSame(data, encodedData);
     }
 
     @Test
     public void testAvroConverter() throws Exception {
-        Schema schema = SchemaBuilder.struct()
-            .field("intField", SchemaBuilder.int32().optional())
-            .field("strField", SchemaBuilder.string().optional())
-            .build();
-        Struct struct = new Struct(schema)
-            .put("intField", 32)
-            .put("strField", "value-32");
-        SchemaAndValue data = new SchemaAndValue(
-            schema,
-            struct
-        );
-
-        org.apache.avro.Schema avroSchema = avroData.fromConnectSchema(data.schema());
-        log.info("Avro Schema : {}", avroSchema);
-
-        // write to json bytes
-        jsonSchema.setAvroSchema(deserializer.getConverter(), null,  avroSchema);
-        byte[] jsonBytes = jsonSchema.encode(data);
-
-        // deserialize json bytes to `SchemaAndValue`
-        SchemaAndValue value = deserializer.deserialize("test-topic", jsonBytes);
-        assertEquals(
-            "\nExpect schema : " + avroData.fromConnectSchema(schema) + "\n"
-                + "Actual schema : " + avroData.fromConnectSchema(value.schema()),
-            avroData.fromConnectSchema(schema),
-            avroData.fromConnectSchema(value.schema())
-        );
-        Struct actualStruct = (Struct) value.value();
-        assertEquals(
-            32, actualStruct.getInt32("intField").intValue());
-        assertEquals(
-            "value-32", actualStruct.getString("strField"));
-
-        // encode connect data in avro format
         jsonSchema.setAvroSchema(
-            null, avroData, avroSchema
+            false,
+            avroData,
+            AVRO_USER_SCHEMA,
+            KafkaJsonSchemaManager.getConverter(ConverterType.AVRO, false)
         );
-        byte[] avroBytes = jsonSchema.encode(value);
-        org.apache.pulsar.client.api.Schema<GenericRecord> genericSchema =
-            org.apache.pulsar.client.api.Schema.generic(SchemaInfo.builder()
-                .name("test")
-                .type(SchemaType.AVRO)
-                .schema(avroSchema.toString().getBytes(UTF_8))
+
+        log.info("Initialized with avro schema {}", AVRO_USER_SCHEMA);
+
+        User user = new User("user-1", 100);
+        byte[] jsonData = userJsonSchema.encode(user);
+
+        byte[] avroData = jsonSchema.encode(jsonData);
+
+        Schema<GenericRecord> userAvroSchema = Schema.generic(
+            SchemaInfo.builder()
+                .name("")
                 .properties(Collections.emptyMap())
-                .build());
-        GenericRecord avroRecord = genericSchema.decode(avroBytes);
-        assertEquals(32, avroRecord.getField("intField"));
-        assertEquals("value-32", avroRecord.getField("strField"));
+                .type(SchemaType.AVRO)
+                .schema(userJsonSchema.getSchemaInfo().getSchema())
+                .build()
+        );
+        GenericRecord userRecord = userAvroSchema.decode(avroData);
+        assertEquals(user.getName(), userRecord.getField("name"));
+        assertEquals(user.getAge(), userRecord.getField("age"));
+
     }
 
 }

@@ -20,19 +20,20 @@ package io.streamnative.connectors.kafka.schema;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import io.confluent.connect.avro.AvroConverter;
 import io.confluent.connect.avro.AvroData;
-import io.confluent.kafka.serializers.NonRecordContainer;
 import java.io.ByteArrayOutputStream;
-import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.Collections;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericDatumWriter;
+import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.io.BinaryEncoder;
-import org.apache.avro.io.DatumWriter;
 import org.apache.avro.io.EncoderFactory;
-import org.apache.avro.specific.SpecificDatumWriter;
-import org.apache.avro.specific.SpecificRecord;
-import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.json.JsonConverter;
+import org.apache.kafka.connect.json.JsonDeserializer;
 import org.apache.kafka.connect.storage.Converter;
 import org.apache.pulsar.client.api.Schema;
 import org.apache.pulsar.client.api.SchemaSerializationException;
@@ -42,66 +43,97 @@ import org.apache.pulsar.common.schema.SchemaType;
 /**
  * A schema to encoding kafka json value.
  */
-public class KafkaJsonSchema implements Schema<SchemaAndValue> {
+@Slf4j
+public class KafkaJsonSchema implements Schema<byte[]> {
 
     private AvroData avroData = null;
-    private final EncoderFactory encoderFactory = EncoderFactory.get();
-    private Converter jsonConverter = null;
+    private final JsonDeserializer jsonDeserializer = new JsonDeserializer();
+    private Converter valueConverter = null;
     private SchemaInfo schemaInfo = null;
     private org.apache.avro.Schema avroSchema = null;
+    private final Method convertToConnectMethod;
 
-    public void setAvroSchema(JsonConverter converter,
+    public KafkaJsonSchema() {
+        try {
+            this.convertToConnectMethod = JsonConverter.class.getDeclaredMethod(
+                "convertToConnect",
+                org.apache.kafka.connect.data.Schema.class,
+                JsonNode.class
+            );
+            this.convertToConnectMethod.setAccessible(true);
+        } catch (NoSuchMethodException e) {
+            throw new RuntimeException("Failed to locate `convertToConnect` method for JsonConverter", e);
+        }
+    }
+
+    public void setAvroSchema(boolean isKey,
                               AvroData avroData,
-                              org.apache.avro.Schema schema) {
-        this.jsonConverter = converter;
+                              org.apache.avro.Schema schema,
+                              Converter converter) {
+        this.valueConverter = converter;
         this.avroData = avroData;
         this.avroSchema = schema;
         this.schemaInfo = SchemaInfo.builder()
-            .name(jsonConverter != null ? "KafkaJson" : "KafkaAvro")
-            .type(jsonConverter != null ? SchemaType.JSON : SchemaType.AVRO)
+            .name(converter instanceof JsonConverter ? "KafkaJson" : "KafkaAvro")
+            .type(converter instanceof JsonConverter ? SchemaType.JSON : SchemaType.AVRO)
             .properties(Collections.emptyMap())
             .schema(schema.toString().getBytes(UTF_8))
             .build();
+        if (converter instanceof AvroConverter) {
+            initializeAvroWriter(schema);
+        }
     }
 
     @SuppressWarnings("unchecked")
     @Override
-    public byte[] encode(SchemaAndValue connectData) {
-        if (null != jsonConverter) {
-            return jsonConverter.fromConnectData("", connectData.schema(), connectData.value());
-        } else if (null != avroData) {
-            Object object = avroData.fromConnectData(
-                connectData.schema(),
-                connectData.value()
+    public byte[] encode(byte[] data) {
+        if (null == valueConverter || valueConverter instanceof JsonConverter) {
+            return data;
+        }
+
+        org.apache.kafka.connect.data.Schema connectSchema = avroData.toConnectSchema(avroSchema);
+        JsonNode jsonNode = jsonDeserializer.deserialize("", data);
+
+        Object connectValue;
+        try {
+            connectValue = convertToConnectMethod.invoke(
+                null,
+                connectSchema,
+                jsonNode
             );
+        } catch (IllegalAccessException e) {
+            throw new SchemaSerializationException("Can not call JsonConverter#convertToConnect");
+        } catch (InvocationTargetException e) {
+            throw new SchemaSerializationException(e.getCause());
+        }
 
-            try {
-                ByteArrayOutputStream out = new ByteArrayOutputStream();
-                if (object instanceof byte[]) {
-                    out.write(((byte[]) object));
-                } else {
-                    BinaryEncoder encoder = this.encoderFactory.directBinaryEncoder(out, null);
-                    Object value =
-                        object instanceof NonRecordContainer ? ((NonRecordContainer) object).getValue() : object;
-                    Object writer;
-                    if (value instanceof SpecificRecord) {
-                        writer = new SpecificDatumWriter(avroSchema);
-                    } else {
-                        writer = new GenericDatumWriter(avroSchema);
-                    }
+        Object avroValue = avroData.fromConnectData(
+            connectSchema,
+            connectValue
+        );
 
-                    ((DatumWriter) writer).write(value, encoder);
-                    encoder.flush();
-                }
+        return writeAvroRecord((GenericRecord) avroValue);
+    }
 
-                byte[] bytes = out.toByteArray();
-                out.close();
-                return bytes;
-            } catch (RuntimeException | IOException e) {
-                throw new SchemaSerializationException(e);
-            }
-        } else {
-            throw new SchemaSerializationException("Schema is not initialized to serialize value");
+    private GenericDatumWriter<GenericRecord> writer;
+    private BinaryEncoder encoder;
+    private ByteArrayOutputStream byteArrayOutputStream;
+
+    synchronized void initializeAvroWriter(org.apache.avro.Schema schema) {
+        this.writer = new GenericDatumWriter<>(schema);
+        this.byteArrayOutputStream = new ByteArrayOutputStream();
+        this.encoder = EncoderFactory.get().binaryEncoder(this.byteArrayOutputStream, this.encoder);
+    }
+
+    synchronized byte[] writeAvroRecord(GenericRecord record) {
+        try {
+            this.writer.write(record, this.encoder);
+            this.encoder.flush();
+            return this.byteArrayOutputStream.toByteArray();
+        } catch (Exception e) {
+            throw new SchemaSerializationException(e);
+        } finally {
+            this.byteArrayOutputStream.reset();
         }
     }
 
