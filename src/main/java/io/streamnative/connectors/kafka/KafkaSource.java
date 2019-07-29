@@ -30,6 +30,7 @@ import io.streamnative.connectors.kafka.schema.KafkaAvroSchema;
 import io.streamnative.connectors.kafka.schema.KafkaAvroSchemaManager;
 import io.streamnative.connectors.kafka.schema.KafkaBytesSchema;
 import io.streamnative.connectors.kafka.schema.KafkaJsonSchema;
+import io.streamnative.connectors.kafka.schema.KafkaJsonSchemaManager;
 import io.streamnative.connectors.kafka.serde.KafkaSchemaAndBytesDeserializer;
 import java.nio.charset.Charset;
 import java.time.Duration;
@@ -189,6 +190,15 @@ public class KafkaSource implements Source<byte[]> {
                         pulsarTopic, numPartitions, kafkaPartitions.size());
                 }
             }
+
+            // process the json schema
+            if (keySchema.orElse(Schema.BYTES) instanceof KafkaJsonSchema
+            || valueSchema.orElse(Schema.BYTES) instanceof KafkaJsonSchema) {
+                try (KafkaJsonSchemaManager jsonSchemaManager = new KafkaJsonSchemaManager(admin, config)) {
+                    keySchema = configureKafkaJsonSchema(jsonSchemaManager, keySchema, true);
+                    valueSchema = configureKafkaJsonSchema(jsonSchemaManager, valueSchema, false);
+                }
+            }
         } catch (PulsarAdminException pae) {
             log.error("Failed to fetch the partitions for Pulsar topic {}", pulsarTopic, pae);
             throw pae;
@@ -240,6 +250,24 @@ public class KafkaSource implements Source<byte[]> {
 
         // start the Kafka fetch thread
         start();
+    }
+
+    private Optional<Schema> configureKafkaJsonSchema(KafkaJsonSchemaManager schemaManager,
+                                                      Optional<Schema> schemaOptional,
+                                                      boolean isKey) {
+        return schemaOptional.map(s -> {
+            if (!(s instanceof KafkaJsonSchema)) {
+                return s;
+            }
+            KafkaJsonSchema jsonSchema = (KafkaJsonSchema) s;
+            jsonSchema.setAvroSchema(
+                isKey,
+                schemaManager.avroData(),
+                isKey ? schemaManager.keySchema() : schemaManager.valueSchema(),
+                isKey ? schemaManager.keyConverter() : schemaManager.valueConverter()
+            );
+            return s;
+        });
     }
 
     private void createPartitionedTopic(PulsarAdmin admin,
@@ -335,6 +363,12 @@ public class KafkaSource implements Source<byte[]> {
         } else if (ShortDeserializer.class.equals(kafkaDeserializerClass)) {
             return Schema.INT16;
         } else if (JsonDeserializer.class.equals(kafkaDeserializerClass)) {
+            // replace this as `ByteArrayDeserializer` so that the original bytes
+            // can be passed to `KafkaJsonSchema`.
+            config.kafka().consumer().put(
+                deserializerClassKey,
+                ByteArrayDeserializer.class.getName()
+            );
             return new KafkaJsonSchema();
         } else if (KafkaAvroDeserializer.class.equals(kafkaDeserializerClass)) {
             if (config.kafka().schema().schema_registry() == null) {

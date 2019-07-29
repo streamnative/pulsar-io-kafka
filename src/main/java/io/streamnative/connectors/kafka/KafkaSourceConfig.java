@@ -64,13 +64,21 @@ public class KafkaSourceConfig {
     }
 
     /**
+     * Converter type.
+     */
+    public enum ConverterType {
+        JSON,
+        AVRO
+    }
+
+    /**
      * The configuration for Kafka schema.
      */
     @Data
     @Accessors(fluent = true)
     @NoArgsConstructor
     @AllArgsConstructor
-    static class KafkaSchemaConfig {
+    public static class KafkaSchemaConfig {
 
         //CHECKSTYLE.OFF: MemberName
         @FieldDoc(
@@ -86,10 +94,31 @@ public class KafkaSourceConfig {
 
         @FieldDoc(
             defaultValue = "",
-            help = "The schema definition written in json format using Avro specification."
-                + " This schema definition is only used when `json_schema_provider` is configured to `CONFIG` provider"
+            help = "The Kafka converter to convert the value data"
         )
-        public String schema;
+        public ConverterType value_converter;
+
+        @FieldDoc(
+            defaultValue = "",
+            help = "The value schema definition written in json format using Avro specification."
+                + " This value schema definition is only used when `json_schema_provider`"
+                + " is configured to `CONFIG` provider"
+        )
+        public String value_schema;
+
+        @FieldDoc(
+            defaultValue = "",
+            help = "The Kafka converter to convert the key data"
+        )
+        public ConverterType key_converter;
+
+        @FieldDoc(
+            defaultValue = "",
+            help = "The key schema definition written in json format using Avro specification."
+                + " This key schema definition is only used when `json_schema_provider`"
+                + " is configured to `CONFIG` provider"
+        )
+        public String key_schema;
         //CHECKSTYLE.ON: MemberName
     }
 
@@ -109,7 +138,7 @@ public class KafkaSourceConfig {
     @Accessors(fluent = true)
     @NoArgsConstructor
     @AllArgsConstructor
-    static class KafkaConsumerConfig {
+    public static class KafkaConsumerConfig {
         @FieldDoc(
             required = true,
             defaultValue = "",
@@ -155,7 +184,7 @@ public class KafkaSourceConfig {
     @Accessors(fluent = true)
     @NoArgsConstructor
     @AllArgsConstructor
-    static class PulsarProducerConfig {
+    public static class PulsarProducerConfig {
         @FieldDoc(
             defaultValue = "",
             help = "The topic to store the pulsar topic. If it is not set, the source connector uses"
