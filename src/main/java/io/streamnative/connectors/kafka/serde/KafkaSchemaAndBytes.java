@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package io.streamnative.connectors.kafka;
+package io.streamnative.connectors.kafka.serde;
 
 import java.nio.ByteBuffer;
 import lombok.Data;

@@ -22,11 +22,14 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import io.confluent.kafka.serializers.KafkaAvroDeserializer;
 import io.streamnative.connectors.kafka.KafkaSourceConfig.KafkaConsumerConfig;
+import io.streamnative.connectors.kafka.pulsar.KafkaMessageRouter;
 import io.streamnative.connectors.kafka.pulsar.MultiVersionKeyValueSchemaProducer;
 import io.streamnative.connectors.kafka.pulsar.MultiVersionRawKeySchemaValueProducer;
 import io.streamnative.connectors.kafka.pulsar.PulsarProducer;
+import io.streamnative.connectors.kafka.schema.KafkaAvroSchema;
 import io.streamnative.connectors.kafka.schema.KafkaBytesSchema;
 import io.streamnative.connectors.kafka.schema.KafkaJsonSchema;
+import io.streamnative.connectors.kafka.serde.KafkaSchemaAndBytesDeserializer;
 import java.nio.charset.Charset;
 import java.time.Duration;
 import java.util.Collections;

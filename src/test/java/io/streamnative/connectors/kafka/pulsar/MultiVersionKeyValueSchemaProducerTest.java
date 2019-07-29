@@ -24,10 +24,11 @@ import static org.junit.Assert.assertFalse;
 
 import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
-import io.streamnative.connectors.kafka.KafkaAvroSchema;
 import io.streamnative.connectors.kafka.KafkaMessageRouter;
 import io.streamnative.connectors.kafka.KafkaSchemaManager;
 import io.streamnative.connectors.kafka.KafkaSchemaManagerConfig;
+import io.streamnative.connectors.kafka.schema.KafkaAvroSchema;
+import io.streamnative.connectors.kafka.serde.KafkaSchemaAndBytes;
 import io.streamnative.tests.common.framework.SystemTestRunner;
 import io.streamnative.tests.common.framework.SystemTestRunner.TestSuiteClass;
 import io.streamnative.tests.pulsar.service.PulsarService;

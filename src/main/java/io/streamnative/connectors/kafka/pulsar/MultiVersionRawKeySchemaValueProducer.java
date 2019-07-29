@@ -18,9 +18,9 @@
  */
 package io.streamnative.connectors.kafka.pulsar;
 
-import io.streamnative.connectors.kafka.KafkaAvroSchema;
-import io.streamnative.connectors.kafka.KafkaSchemaAndBytes;
 import io.streamnative.connectors.kafka.KafkaSchemaManager;
+import io.streamnative.connectors.kafka.schema.KafkaAvroSchema;
+import io.streamnative.connectors.kafka.serde.KafkaSchemaAndBytes;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;

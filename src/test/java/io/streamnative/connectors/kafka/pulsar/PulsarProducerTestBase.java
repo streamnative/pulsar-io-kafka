@@ -23,7 +23,7 @@ import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
-import io.streamnative.connectors.kafka.KafkaSchemaAndBytes;
+import io.streamnative.connectors.kafka.serde.KafkaSchemaAndBytes;
 import io.streamnative.tests.pulsar.service.PulsarService;
 import io.streamnative.tests.pulsar.suites.PulsarServiceSystemTestCase;
 import java.nio.ByteBuffer;
