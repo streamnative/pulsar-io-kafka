@@ -28,6 +28,7 @@ import com.google.common.collect.Lists;
 import io.streamnative.connectors.kafka.KafkaSourceConfig.KafkaConsumerConfig;
 import io.streamnative.connectors.kafka.KafkaSourceConfig.PulsarProducerConfig;
 import io.streamnative.connectors.kafka.pulsar.Generator;
+import io.streamnative.connectors.kafka.schema.KafkaAvroSchemaManagerConfig;
 import io.streamnative.tests.common.framework.Service;
 import io.streamnative.tests.pulsar.service.PulsarService;
 import io.streamnative.tests.pulsar.suites.PulsarServiceSystemTestCase;
@@ -177,7 +178,7 @@ public abstract class KafkaSourceTestBase extends PulsarServiceSystemTestCase {
             kafkaServiceUri.getServiceHosts()[0]
         );
         kafkaProducerConfigMap.put(
-            KafkaSchemaManagerConfig.SCHEMA_REGISTRY_URL_CONFIG,
+            KafkaAvroSchemaManagerConfig.SCHEMA_REGISTRY_URL_CONFIG,
             schemaRegistryServiceUri.getUri().toString()
         );
 
