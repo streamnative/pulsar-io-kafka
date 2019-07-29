@@ -32,6 +32,8 @@ import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import io.confluent.kafka.serializers.KafkaAvroSerializer;
 import io.confluent.kafka.serializers.subject.TopicNameStrategy;
 import io.streamnative.connectors.kafka.pulsar.PulsarProducerTestBase.AvroValueVerifier;
+import io.streamnative.connectors.kafka.serde.KafkaSchemaAndBytes;
+import io.streamnative.connectors.kafka.serde.KafkaSchemaAndBytesDeserializer;
 import io.streamnative.tests.pulsar.service.PulsarService;
 import java.util.Collections;
 import java.util.HashMap;

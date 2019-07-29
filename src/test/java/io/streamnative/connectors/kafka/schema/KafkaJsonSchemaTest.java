@@ -22,7 +22,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertEquals;
 
 import io.confluent.connect.avro.AvroData;
-import io.streamnative.connectors.kafka.KafkaConnectDataDeserializer;
+import io.streamnative.connectors.kafka.serde.KafkaConnectDataDeserializer;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
