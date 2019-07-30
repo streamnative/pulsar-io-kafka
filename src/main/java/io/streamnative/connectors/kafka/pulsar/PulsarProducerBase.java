@@ -68,7 +68,8 @@ public abstract class PulsarProducerBase implements PulsarProducer {
                             topic, schema.getSchemaInfo());
 
                         Producer producer = client.newProducer(s)
-                            .loadConf(producerConfig)
+                            // TODO: This requires Pulsar 2.4.1+
+                            // .loadConf(producerConfig)
                             .topic(topic)
                             .messageRouter(messageRouter)
                             .create();
