@@ -1,156 +1,108 @@
-## Pulsar IO :: Template
+## Pulsar IO Kafka Connector
 
-This is a template project for developing an enterprise-grade
-pulsar IO connector.
+pulsar-io-kafka is a [Pulsar IO Connector](http://pulsar.apache.org/docs/en/io-overview/) for copying data between
+Kafka and Pulsar.
 
-This template already sets up a project structure, including
-necessary dependencies and plugins. The IO connector developers
-can clone this project to develop their own connector.
+> NOTE: This connector is an enhanced version of `pulsar-io-kafka` connector to support schema.
 
-### Project Layout
+### Get started
 
-Before starting developing your own connector, please take a look at
-how this template project organize the files for a connector.
+This provides a step-by-step example how to use this Kafka source connector to copy *json* data from a Kafka topic
+to a Pulsar topic and save the data in *AVRO* format.
 
-```bash
+#### Build pulsar-io-kafka connector
 
-├── conf
-├── docs
-├── src
-│   ├── checkstyle
-│   ├── license
-│   │   └── ALv2
-│   ├── main
-│   │   └── java
-│   ├── spotbugs
-│   └── test
-│       └── java
+1. Git clone `pulsar-io-kafka`. Assume *PULSAR_IO_KAFKA_HOME* is the home directory for your
+   cloned `pulsar-io-kafka` repo for the remaining steps.
+   ```
+   $ git clone https://github.com/streamnative/pulsar-io-kafka
+   $ git checkout kafka
+   ```
 
-```
+2. Build the connector in `${PULSAR_IO_KAFKA_HOME}` directory.
+   ```
+   mvn clean install -DskipTests
+   ```
+   After successfully built the connector, a *NAR* package is generated under *target* directory. The *NAR* package
+   is the one you used for 
+   ```
+   $ ls target/pulsar-io-kafka-2.5.0-SNAPSHOT.nar
+   target/pulsar-io-kafka-2.5.0-SNAPSHOT.nar
+   ```
 
-- `conf` directory is used for storing examples of config files of this connector.
-- `docs` directory is used for keeping the documentation of this connector.
-- `src` directory is used for storing the source code of this connector.
-  - `src/checkstyle`: store the checkstyle configuration files
-  - `src/license`: store the license header for this project. `mvn license:format` can
-    be used for formatting the project with the stored license header in this directory.
-  - `src/spotbugs`: store the spotbugs configuration files
-  - `src/main`: for keeping all the main source files
-  - `src/test`: for keeping all the related tests
+#### Prepare a config for running pulsar-io-kafka connector
 
-### Develop a Connector
+An example yaml config is available [here](https://github.com/streamnative/pulsar-io-kafka/blob/kafka/conf/pulsar-io-kafka.yaml)
 
-Here are the instructions for developing a Pulsar connector `pulsar-io-foo`
-use this project template.
+This example yaml config is used for copying json data from Kafka topic *input-topic* to Pulsar topic *output-topic* and
+save the messages in AVRO format.
 
-#### Clone the Template
+#### Run pulsar-io-kafka connector
 
-You can clone the template project with `--bare`.
+1. Download Pulsar 2.4.0 release from [Pulsar website](http://pulsar.apache.org/en/download/) and follow
+   the [instructions](http://pulsar.apache.org/docs/en/standalone/) to start a standalone Pulsar.
+   Assume *PULSAR_HOME* is the home directory for your Pulsar installation for the remaining steps.
 
-```bash
-$ git clone --bare https://github.com/streamnative/pulsar-io-template.git pulsar-io-foo
-```
+   Example command to start a standalone Pulsar.
+   ```
+   cd ${PULSAR_HOME}
+   bin/pulsar standalone
+   ```
 
-#### Push to Github
+2. Download Kafka release from [Kafka website](http://kafka.apache.org/downloads) and follow
+   the [instructions](http://kafka.apache.org/quickstart) to start a Kafka server.
+   Assume *KAFKA_HOME* is the home directory for your Kafka installation for the remaining steps.
 
-You can create a `pulsar-io-foo` project at your Github account and push the project to your
-Github account.
+   Example commands to start a Kafka server.
+   ```
+   cd ${KAFKA_HOME}
+   bin/zookeeper-server-start.sh config/zookeeper.properties
+   bin/kafka-server-start.sh config/server.properties
+   ```
 
-```
-$ cd pulsar-io-foo
-$ git push https://github.com/<Your-Github-Account>/pulsar-io-foo
-```
+3. Create a Kafka topic.
+   
+   > Make sure the Kafka topic name is the one you configured in `pulsar-io-kafka.yaml`.
 
-Once the project is pushed to your Github account, you can then develop the connector as
-a normal Github project.
+   ```
+   bin/kafka-topics.sh --bootstrap-server 127.0.0.1:9092 --create --topic input-topic --replication-factor 1 --partitions 4
+   ```
 
-```bash
-$ cd ..
-$ rm -rf pulsar-io-foo
-$ git clone https://github.com/<Your-Github-Account>/pulsar-io-foo
-```
+4. Copy the pulsar-io-kafka conenctor to `${PULSAR_HOME}/connectors` directory.
 
-#### Update Pom File
+   ```
+   cd ${PULSAR_HOME}
+   mkdir -p connectors
+   cp ${PULSAR_IO_KAFKA_HOME}/target/pulsar-io-kafka-2.5.0-SNAPSHOT.nar connectors/
+   ```
 
-The first thing to do is to update the [pom file](pom.xml) to customize your connector.
+5. Localrun the pulsar-io-kafka connector.
 
-1. Change `artifactId` to `pulsar-io-foo`.
-2. Update `version` to a version you like. A good practice is to pick the pulsar version
-   as the same version for your connector so that it is easy to figure out what version of
-   this connector works for what version of Pulsar.
-3. Update `name` to `Pulsar Ecosystem :: IO Connector :: <Your Connector Name>`.
-4. Update `description` to the description of your connector.
+   > NOTE: `--destination-topic-name` is used by pulsar io runtime but not by this `pulsar-io-kafka` connector. We can not omit this 
+   >       setting at this momement. So you can given any *unused* topic name for now.
 
-Once the above steps are done, you will have a real `pulsar-io-foo` project to develop
-your own connector.
-
-#### Implement Your Connector
-
-Before you start implementing your own connector, it would be good to remove the example
-connector included in the project template.
-
-```bash
-$ rm -rf src/main/java/org/apache/pulsar/ecosystem/io/random
-```
-
-Then you can create a package `org.apache.pulsar.ecosystem.io.foo` to develop your connector
-logic under it.
-
-#### Test Your Connector
-
-It is strongly recommended to write tests for your connector.
-
-There are a few test examples under
-[src/test/java/org/apache/pulsar/ecosystem/io/random](src/test/java/org/apache/pulsar/ecosystem/io/random)
-showing how to test a connector.
-
-Before you start writing tests for your connector, you can remove those examples
-
-```bash
-$ rm -rf src/test/java/org/apache/pulsar/ecosystem/io/random
-```
-
-Then you can create a package `org.apache.pulsar.ecosystem.io.foo` under `src/test` directory
-to develop the tests for your connector.
-
-#### Checkstyle and Spotbugs
-
-The template project already sets up checkstyle plugin and spotbugs plugin for ensuring you
-write a connector that has a consistent coding convention with other connectors and high code
-quality.
-
-To run checkstyle:
-
-```bash
-$ mvn checkstyle:check
-```
-
-To run spotbugs:
-
-```bash
-$ mvn spotbugs:check
-```
-
-#### License
-
-Before you publish your connector for others to use, you might consider pick up a license
-you like to use for your connector.
-
-Once you choose the license, you should do followings:
-
-- Replace the `LICENSE` file with your chosen license.
-- Add your license header to `src/license/<your-license-header>.txt`.
-- Update the license-maven-plugin configuration in pom.xml to point to your license header
-  `src/license/<your-license-header>.txt`.
-- Run `license:format` to format the project with your license
+   ```
+   cd ${PULSAR_HOME}
+   bin/pulsar-admin sources localrun -a connectors/pulsar-io-kafka-2.5.0-SNAPSHOT.nar --tenant public --namespace default --name test-kafka-source --source-config-file ${PULSAR_IO_KAFKA_HOME}/conf/pulsar-io-kafka.yaml --destination-topic-name test-kafka-source-topic
+   ```
+   Once the connector is running, keep this terminal open during the remaining steps.
 
 
+6. Now we can use a *json* kafka producer and an *avro* pulsar consumer to verify if the connector is working as expected.
 
+   Start a *json* Kafka producer to produce 100 messages.
+   ```
+   cd ${PULSAR_IO_KAFKA_HOME}
+   bin/kafka-json-producer.sh localhost:9092 input-topic 100
+   ```
 
+   Start an *avro* Pulsar consumer to consume the 100 messages (in avro format).
+   ```
+   cd ${PULSAR_IO_KAFKA_HOME}
+   bin/pulsar-avro-consumer.sh pulsar://localhost:6650 output-topic sub
+   ```
 
-
-
-
-
-
-
+   You will see similar output in the terminal you run `pulsar-avro-consumer.sh`:
+   ```
+   Receive message : key = user-99, value = User(name=user-99, age=990, address=address-99)
+   ```
