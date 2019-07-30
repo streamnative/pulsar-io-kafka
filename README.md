@@ -16,6 +16,7 @@ to a Pulsar topic and save the data in *AVRO* format.
    cloned `pulsar-io-kafka` repo for the remaining steps.
    ```
    $ git clone https://github.com/streamnative/pulsar-io-kafka
+   $ git checkout kafka
    ```
 
 2. Build the connector in `${PULSAR_IO_KAFKA_HOME}` directory.
