@@ -172,11 +172,11 @@
         <exclusions>
           <exclusion>
             <groupId>org.apache.pulsar</groupId>
-            <artifactId>pulsar-client-original</artifactId>
+            <artifactId>pulsar-client</artifactId>
           </exclusion>
           <exclusion>
             <groupId>org.apache.pulsar</groupId>
-            <artifactId>pulsar-client-admin-original</artifactId>
+            <artifactId>pulsar-client-admin</artifactId>
           </exclusion>
         </exclusions>
       </dependency>
