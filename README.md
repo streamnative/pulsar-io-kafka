@@ -16,7 +16,6 @@ to a Pulsar topic and save the data in *AVRO* format.
    cloned `pulsar-io-kafka` repo for the remaining steps.
    ```
    $ git clone https://github.com/streamnative/pulsar-io-kafka
-   $ git checkout kafka
    ```
 
 2. Build the connector in `${PULSAR_IO_KAFKA_HOME}` directory.
@@ -32,7 +31,7 @@ to a Pulsar topic and save the data in *AVRO* format.
 
 #### Prepare a config for running pulsar-io-kafka connector
 
-An example yaml config is available [here](https://github.com/streamnative/pulsar-io-kafka/blob/kafka/conf/pulsar-io-kafka.yaml)
+An example yaml config is available [here](https://github.com/streamnative/pulsar-io-kafka/blob/master/conf/pulsar-io-kafka.yaml)
 
 This example yaml config is used for copying json data from Kafka topic *input-topic* to Pulsar topic *output-topic* and
 save the messages in AVRO format.
