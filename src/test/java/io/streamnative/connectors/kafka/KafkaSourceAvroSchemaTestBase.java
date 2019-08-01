@@ -21,17 +21,24 @@ package io.streamnative.connectors.kafka;
 import static io.streamnative.connectors.kafka.pulsar.PulsarProducerTestBase.AVRO_GENERIC_RECORD_GENERATOR;
 import static io.streamnative.connectors.kafka.pulsar.PulsarProducerTestBase.AVRO_OBJECT_GENERATOR;
 import static io.streamnative.connectors.kafka.pulsar.PulsarProducerTestBase.AVRO_VALUE_DECODER;
+import static io.streamnative.connectors.kafka.pulsar.PulsarProducerTestBase.JSON_STUDENT_GENERATOR;
+import static io.streamnative.connectors.kafka.pulsar.PulsarProducerTestBase.PULSAR_JSON_STUDENT_SCHEMA;
+import static io.streamnative.connectors.kafka.pulsar.PulsarProducerTestBase.STUDENT_GENERATOR;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.Lists;
 import io.confluent.kafka.schemaregistry.client.CachedSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import io.confluent.kafka.serializers.KafkaAvroSerializer;
 import io.confluent.kafka.serializers.subject.TopicNameStrategy;
 import io.streamnative.connectors.kafka.pulsar.PulsarProducerTestBase.AvroValueVerifier;
+import io.streamnative.connectors.kafka.pulsar.PulsarProducerTestBase.Student;
+import io.streamnative.connectors.kafka.serde.KafkaSchemaAndBytes;
+import io.streamnative.connectors.kafka.serde.KafkaSchemaAndBytesDeserializer;
 import io.streamnative.tests.pulsar.service.PulsarService;
 import java.util.Collections;
 import java.util.HashMap;
@@ -41,10 +48,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import lombok.Cleanup;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.avro.Schema;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
+import org.apache.kafka.common.serialization.Serializer;
+import org.apache.kafka.connect.json.JsonSerializer;
 import org.apache.pulsar.client.api.Consumer;
 import org.apache.pulsar.client.api.Message;
 import org.apache.pulsar.client.api.schema.GenericRecord;
@@ -79,11 +87,43 @@ public abstract class KafkaSourceAvroSchemaTestBase extends KafkaSourceTestBase 
         );
     }
 
-    protected long registerTopicSchema(String topic, Schema schema, boolean isKey) throws Exception {
-        String subjectName = nameStrategy.subjectName(topic, isKey, schema);
-        return this.schemaRegistryClient.register(
-            subjectName, schema
+    @SuppressWarnings("unchecked")
+    protected void sendJsonMessagesToKafka(
+        String kafkaTopic,
+        int numPartitions, int numMessages
+    ) throws Exception {
+        Serializer keySerializer = new JsonSerializer();
+        Serializer valueSerializer = new JsonSerializer();
+        @Cleanup
+        KafkaProducer<JsonNode, JsonNode> kafkaProducer = newKafkaProducer(
+            keySerializer, valueSerializer
         );
+
+        for (int i = 0; i < numPartitions; i++) {
+            for (int j = 0; j < numMessages; j++) {
+                JsonNode key = JSON_STUDENT_GENERATOR.apply(i, j);
+                JsonNode value = JSON_STUDENT_GENERATOR.apply(i, j);
+                ProducerRecord<JsonNode, JsonNode> record = new ProducerRecord<>(
+                    kafkaTopic, i,
+                    (j + 1) * 1000L,
+                    key,
+                    value
+                );
+                record.headers().add(HEADER_TEST_SEQUENCE, Integer.toString(j).getBytes(UTF_8));
+                CompletableFuture<RecordMetadata> sendFuture = new CompletableFuture<>();
+                kafkaProducer.send(record, (metadata, exception) -> {
+                    if (null != exception) {
+                        sendFuture.completeExceptionally(exception);
+                    } else {
+                        sendFuture.complete(metadata);
+                    }
+                }).get();
+                RecordMetadata metadata = sendFuture.get();
+                log.info("Send message to Kafka topic {} : ({}, {}) - offset: {}, timestamp: {}, key {}, value {}",
+                    kafkaTopic, i, j, metadata.offset(), metadata.timestamp(), key, value);
+            }
+        }
+        kafkaProducer.flush();
     }
 
     protected void sendAvroMessagesToKafka(
@@ -255,6 +295,72 @@ public abstract class KafkaSourceAvroSchemaTestBase extends KafkaSourceTestBase 
                 valueVerifier.verify(i, j, actualKey);
                 GenericRecord actualValue = message.getValue().getValue();
                 valueVerifier.verify(i, j, actualValue);
+            }
+        }
+    }
+
+    protected void receiveJsonKeyAvroValuesFromPulsar(
+        Consumer<Student> valueConsumer,
+        String pulsarTopic,
+        int numPartitions, int numMessages
+    ) throws Exception {
+        Map<Integer, TreeMap<Integer, Message<Student>>> partitionIdxs = new HashMap<>();
+        AtomicInteger totalReceived = new AtomicInteger(0);
+        while (totalReceived.get() < numPartitions * numMessages) {
+            Message<Student> message = valueConsumer.receive();
+            TopicName tn = TopicName.get(message.getTopicName());
+            assertEquals(
+                TopicName.get(pulsarTopic).toString(),
+                tn.getPartitionedTopicName()
+            );
+            int partitionIdx = tn.getPartitionIndex();
+            int sequence = Integer.parseInt(Base64.decodeAsString(message.getProperty(HEADER_TEST_SEQUENCE)));
+
+            log.info("Receive {} message from partition {} : total = {}",
+                    sequence, partitionIdx, totalReceived.get());
+
+            TreeMap<Integer, Message<Student>> partitionMap = partitionIdxs.computeIfAbsent(
+                partitionIdx, p -> new TreeMap<>()
+            );
+            Message<Student> oldMessage = partitionMap.putIfAbsent(sequence, message);
+            if (null == oldMessage) {
+                totalReceived.incrementAndGet();
+            } else {
+                assertEquals(message.getKey(), oldMessage.getKey());
+                assertEquals(message.getTopicName(), oldMessage.getTopicName());
+                assertArrayEquals(message.getData(), oldMessage.getData());
+                assertArrayEquals(message.getSchemaVersion(), oldMessage.getSchemaVersion());
+                assertEquals(message.getEventTime(), oldMessage.getEventTime());
+                assertEquals(message.getSequenceId(), oldMessage.getSequenceId());
+                assertEquals(message.getProperties().size(), oldMessage.getProperties().size());
+            }
+        }
+
+        for (int i = 0; i < numPartitions; i++) {
+            for (int j = 0; j < numMessages; j++) {
+                Map<Integer, Message<Student>> partitionMap = partitionIdxs.get(i);
+                assertNotNull("No messages received for partition " + i, partitionMap);
+                Message<Student> message = partitionMap.get(j);
+                assertNotNull("No message found for (" + i + ", " + j + ")", message);
+
+                assertEquals(
+                    i,
+                    Integer.parseInt(message.getProperty(KafkaSource.HEADER_KAFKA_PTN_KEY)));
+                assertEquals(
+                    TopicName.get(pulsarTopic).getLocalName(),
+                    message.getProperty(KafkaSource.HEADER_KAFKA_TOPIC_KEY));
+                assertEquals(
+                    "Message received from partition (" + i + ", " + j + ") has wrong event time",
+                    (j + 1) * 1000L, message.getEventTime());
+
+                byte[] keyData = message.getKeyBytes();
+                Student expectedKey = STUDENT_GENERATOR.apply(i, j);
+                Student actualKey = PULSAR_JSON_STUDENT_SCHEMA.decode(keyData);
+                assertEquals(expectedKey, actualKey);
+
+                Student expectedValue = STUDENT_GENERATOR.apply(i, j);
+                Student actualValue = message.getValue();
+                assertEquals(expectedValue, actualValue);
             }
         }
     }

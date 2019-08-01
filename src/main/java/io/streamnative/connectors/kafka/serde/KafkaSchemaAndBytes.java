@@ -16,20 +16,18 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package io.streamnative.connectors.kafka;
+package io.streamnative.connectors.kafka.serde;
 
-import io.confluent.common.config.ConfigDef;
-import io.confluent.kafka.serializers.AbstractKafkaAvroSerDeConfig;
-import java.util.Map;
+import java.nio.ByteBuffer;
+import lombok.Data;
 
 /**
- * Kafka schema manager configuration.
+ * The class represents bytes and its associated schema.
  */
-public class KafkaSchemaManagerConfig extends AbstractKafkaAvroSerDeConfig {
+@Data
+public class KafkaSchemaAndBytes {
 
-    private static ConfigDef config = baseConfigDef();
+    private final int schemaId;
+    private final ByteBuffer data;
 
-    public KafkaSchemaManagerConfig(Map<?, ?> props) {
-        super(config, props);
-    }
 }

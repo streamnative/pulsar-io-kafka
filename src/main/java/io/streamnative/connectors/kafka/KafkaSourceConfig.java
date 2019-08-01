@@ -45,6 +45,83 @@ import org.apache.pulsar.io.core.annotations.FieldDoc;
 @Slf4j
 public class KafkaSourceConfig {
 
+    /**
+     * The type of json schema provider.
+     */
+    public enum JsonSchemaProvider {
+
+        // the schema is nested in the json content. the json data generated from
+        // Kafka Connect usually carries the schema.
+        INLINE,
+
+        // the schema is provided in the config. the schema is a 'json' string
+        // written in Avro schema specification.
+        CONFIG,
+
+        // the schema is provided by the Pulsar topic.
+        PULSAR
+
+    }
+
+    /**
+     * Converter type.
+     */
+    public enum ConverterType {
+        JSON,
+        AVRO
+    }
+
+    /**
+     * The configuration for Kafka schema.
+     */
+    @Data
+    @Accessors(fluent = true)
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class KafkaSchemaConfig {
+
+        //CHECKSTYLE.OFF: MemberName
+        @FieldDoc(
+            defaultValue = "",
+            help = "The kafka schema registry properties")
+        public Map<String, Object> schema_registry;
+
+        @FieldDoc(
+            defaultValue = "CONFIG",
+            help = "The json schema provider type. Available types : INLINE, CONFIG, PULSAR"
+        )
+        public JsonSchemaProvider json_schema_provider = JsonSchemaProvider.CONFIG;
+
+        @FieldDoc(
+            defaultValue = "",
+            help = "The Kafka converter to convert the value data"
+        )
+        public ConverterType value_converter;
+
+        @FieldDoc(
+            defaultValue = "",
+            help = "The value schema definition written in json format using Avro specification."
+                + " This value schema definition is only used when `json_schema_provider`"
+                + " is configured to `CONFIG` provider"
+        )
+        public String value_schema;
+
+        @FieldDoc(
+            defaultValue = "",
+            help = "The Kafka converter to convert the key data"
+        )
+        public ConverterType key_converter;
+
+        @FieldDoc(
+            defaultValue = "",
+            help = "The key schema definition written in json format using Avro specification."
+                + " This key schema definition is only used when `json_schema_provider`"
+                + " is configured to `CONFIG` provider"
+        )
+        public String key_schema;
+        //CHECKSTYLE.ON: MemberName
+    }
+
     @SuppressWarnings("unchecked")
     public Map<String, Object> toConfigMap() throws IOException {
         ObjectMapper mapper = new ObjectMapper();
@@ -61,7 +138,7 @@ public class KafkaSourceConfig {
     @Accessors(fluent = true)
     @NoArgsConstructor
     @AllArgsConstructor
-    static class KafkaConsumerConfig {
+    public static class KafkaConsumerConfig {
         @FieldDoc(
             required = true,
             defaultValue = "",
@@ -77,10 +154,11 @@ public class KafkaSourceConfig {
             defaultValue = "",
             help = "The consumer config properties to be passed to a Kafka consumer.")
         public Map<String, Object> consumer;
+
         @FieldDoc(
             defaultValue = "",
-            help = "The kafka schema registry properties")
-        public Map<String, Object> schema;
+            help = "The config properties for interpreting Kafka schema")
+        public KafkaSchemaConfig schema = new KafkaSchemaConfig();
 
         public void validate() {
             Objects.requireNonNull(
@@ -106,7 +184,7 @@ public class KafkaSourceConfig {
     @Accessors(fluent = true)
     @NoArgsConstructor
     @AllArgsConstructor
-    static class PulsarProducerConfig {
+    public static class PulsarProducerConfig {
         @FieldDoc(
             defaultValue = "",
             help = "The topic to store the pulsar topic. If it is not set, the source connector uses"

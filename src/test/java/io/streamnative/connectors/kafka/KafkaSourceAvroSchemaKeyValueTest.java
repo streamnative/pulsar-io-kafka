@@ -24,6 +24,7 @@ import static io.streamnative.connectors.kafka.pulsar.PulsarProducerTestBase.PUL
 
 import com.google.common.collect.Lists;
 import io.confluent.kafka.serializers.KafkaAvroDeserializer;
+import io.streamnative.connectors.kafka.schema.KafkaAvroSchemaManagerConfig;
 import io.streamnative.tests.common.framework.SystemTestRunner;
 import io.streamnative.tests.common.framework.SystemTestRunner.TestSuiteClass;
 import io.streamnative.tests.pulsar.service.PulsarService;
@@ -50,6 +51,7 @@ import org.testcontainers.utility.Base58;
 @RunWith(SystemTestRunner.class)
 @TestSuiteClass(KafkaSourceTestSuite.class)
 @Slf4j
+@SuppressWarnings("unchecked")
 public class KafkaSourceAvroSchemaKeyValueTest extends KafkaSourceAvroSchemaTestBase {
 
     public KafkaSourceAvroSchemaKeyValueTest(PulsarService service) {
@@ -70,10 +72,10 @@ public class KafkaSourceAvroSchemaKeyValueTest extends KafkaSourceAvroSchemaTest
             .put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, OffsetResetStrategy.EARLIEST.name().toLowerCase());
         Map<String, Object> schemaRegistryConfigMap = new HashMap<>();
         schemaRegistryConfigMap.put(
-            KafkaSchemaManagerConfig.SCHEMA_REGISTRY_URL_CONFIG,
+            KafkaAvroSchemaManagerConfig.SCHEMA_REGISTRY_URL_CONFIG,
             schemaRegistryServiceUri.getUri().toString()
         );
-        config.kafka().schema(schemaRegistryConfigMap);
+        config.kafka().schema().schema_registry(schemaRegistryConfigMap);
         config.pulsar().copy_kafka_schema(true);
 
         final int numPartitions = 10;

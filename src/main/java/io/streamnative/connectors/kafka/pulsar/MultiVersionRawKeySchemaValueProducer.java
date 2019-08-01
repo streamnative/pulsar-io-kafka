@@ -18,9 +18,9 @@
  */
 package io.streamnative.connectors.kafka.pulsar;
 
-import io.streamnative.connectors.kafka.KafkaAvroSchema;
-import io.streamnative.connectors.kafka.KafkaSchemaAndBytes;
-import io.streamnative.connectors.kafka.KafkaSchemaManager;
+import io.streamnative.connectors.kafka.schema.KafkaAvroSchema;
+import io.streamnative.connectors.kafka.schema.KafkaAvroSchemaManager;
+import io.streamnative.connectors.kafka.serde.KafkaSchemaAndBytes;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -41,7 +41,7 @@ import org.apache.pulsar.client.api.Schema;
 @SuppressWarnings("unchecked")
 public class MultiVersionRawKeySchemaValueProducer implements PulsarProducer {
 
-    private final KafkaSchemaManager schemaManager;
+    private final KafkaAvroSchemaManager schemaManager;
     private final boolean isValueKafkaAvroSchema;
     private final Schema valueSchema;
     private final ConcurrentMap<Integer, PulsarProducer> producers;
@@ -64,7 +64,7 @@ public class MultiVersionRawKeySchemaValueProducer implements PulsarProducer {
                                                  Schema valueSchema,
                                                  Map<String, Object> producerConfig,
                                                  MessageRouter messageRouter,
-                                                 KafkaSchemaManager manager) throws PulsarClientException {
+                                                 KafkaAvroSchemaManager manager) throws PulsarClientException {
         this.schemaManager = manager;
         this.valueSchema = valueSchema;
         this.isValueKafkaAvroSchema = valueSchema instanceof KafkaAvroSchema;

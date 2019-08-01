@@ -16,18 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package io.streamnative.connectors.kafka;
-
-import java.nio.ByteBuffer;
-import lombok.Data;
-
 /**
- * The class represents bytes and its associated schema.
+ * Kafka serializer and deserializer for Kafka source.
  */
-@Data
-public class KafkaSchemaAndBytes {
-
-    private final int schemaId;
-    private final ByteBuffer data;
-
-}
+package io.streamnative.connectors.kafka.serde;

@@ -16,10 +16,11 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package io.streamnative.connectors.kafka;
+package io.streamnative.connectors.kafka.schema;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import io.streamnative.connectors.kafka.serde.KafkaSchemaAndBytes;
 import java.nio.ByteBuffer;
 import java.util.Collections;
 import org.apache.pulsar.client.api.Schema;

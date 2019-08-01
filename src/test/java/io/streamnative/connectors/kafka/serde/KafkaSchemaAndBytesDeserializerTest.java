@@ -16,69 +16,62 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package io.streamnative.connectors.kafka;
+package io.streamnative.connectors.kafka.serde;
 
 import static io.streamnative.connectors.kafka.AvroTestSchemas.USER_SCHEMA;
-import static org.junit.Assert.assertArrayEquals;
+import static io.streamnative.connectors.kafka.AvroTestSchemas.USER_SCHEMA_DEF;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertNull;
 
 import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import io.confluent.kafka.serializers.KafkaAvroDeserializerConfig;
 import io.confluent.kafka.serializers.KafkaAvroSerializer;
 import io.confluent.kafka.serializers.KafkaAvroSerializerConfig;
-import java.nio.ByteBuffer;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
-import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.generic.IndexedRecord;
+import org.apache.pulsar.client.api.Schema;
 import org.apache.pulsar.common.schema.SchemaInfo;
 import org.apache.pulsar.common.schema.SchemaType;
 import org.junit.Test;
 
 /**
- * Unit test {@link KafkaAvroSchema}.
+ * Unit test {@link KafkaSchemaAndBytesDeserializer}.
  */
 @SuppressWarnings("unchecked")
-public class KafkaAvroSchemaTest {
+public class KafkaSchemaAndBytesDeserializerTest {
 
     private final String topic;
     private final SchemaRegistryClient schemaRegistry;
     private final KafkaSchemaAndBytesDeserializer ksBytesDeserializer;
+    private final Schema<org.apache.pulsar.client.api.schema.GenericRecord> pulsarSchema;
     private final KafkaAvroSerializer kafkaAvroSerializer;
-    private final KafkaAvroSchema kafkaAvroSchema;
 
-    public KafkaAvroSchemaTest() {
+    public KafkaSchemaAndBytesDeserializerTest() {
         this.topic = "test";
         this.schemaRegistry = new MockSchemaRegistryClient();
         Properties defaultConfig = new Properties();
         defaultConfig.put(KafkaAvroDeserializerConfig.SCHEMA_REGISTRY_URL_CONFIG, "bogus");
         this.kafkaAvroSerializer = new KafkaAvroSerializer(schemaRegistry, new HashMap(defaultConfig));
         this.ksBytesDeserializer = new KafkaSchemaAndBytesDeserializer();
-        this.kafkaAvroSchema = new KafkaAvroSchema();
-        this.kafkaAvroSchema.setAvroSchema(USER_SCHEMA);
+        this.pulsarSchema = Schema.generic(SchemaInfo.builder()
+            .type(SchemaType.AVRO)
+            .name("AVRO")
+            .schema(USER_SCHEMA_DEF.getBytes(UTF_8))
+            .properties(Collections.emptyMap())
+            .build());
     }
 
     private IndexedRecord createAvroRecord(String name) {
         GenericRecord avroRecord = new GenericData.Record(USER_SCHEMA);
         avroRecord.put("name", name);
         return avroRecord;
-    }
-
-    @Test
-    public void testGetSchemaInfo() {
-        SchemaInfo schemaInfo = this.kafkaAvroSchema.getSchemaInfo();
-        assertEquals("KafkaAvro", schemaInfo.getName());
-        assertEquals(SchemaType.AVRO, schemaInfo.getType());
-        assertTrue(schemaInfo.getProperties().isEmpty());
-        assertEquals(
-            USER_SCHEMA,
-            new Schema.Parser().parse(schemaInfo.getSchemaDefinition())
-        );
     }
 
     @Test
@@ -103,11 +96,10 @@ public class KafkaAvroSchemaTest {
         KafkaSchemaAndBytes ksBytes = ksBytesDeserializer.deserialize(topic, bytes);
         assertEquals(kafkaSchemaId, ksBytes.getSchemaId());
 
-        ByteBuffer duplicated = ksBytes.getData().duplicate();
-        byte[] avroData = new byte[duplicated.remaining()];
-        duplicated.get(avroData);
-        byte[] encodedData = kafkaAvroSchema.encode(ksBytes);
-        assertArrayEquals(avroData, encodedData);
+        byte[] avroData = new byte[ksBytes.getData().remaining()];
+        ksBytes.getData().get(avroData);
+        org.apache.pulsar.client.api.schema.GenericRecord pulsarGenericRecord = pulsarSchema.decode(avroData);
+        assertEquals(name, pulsarGenericRecord.getField("name"));
     }
 
     @Test
@@ -132,11 +124,14 @@ public class KafkaAvroSchemaTest {
         KafkaSchemaAndBytes ksBytes = ksBytesDeserializer.deserialize(topic, bytes);
         assertEquals(kafkaSchemaId, ksBytes.getSchemaId());
 
-        ByteBuffer duplicated = ksBytes.getData().duplicate();
-        byte[] avroData = new byte[duplicated.remaining()];
-        duplicated.get(avroData);
-        byte[] encodedData = kafkaAvroSchema.encode(ksBytes);
-        assertArrayEquals(avroData, encodedData);
+        byte[] avroData = new byte[ksBytes.getData().remaining()];
+        ksBytes.getData().get(avroData);
+        org.apache.pulsar.client.api.schema.GenericRecord pulsarGenericRecord = pulsarSchema.decode(avroData);
+        assertEquals(name, pulsarGenericRecord.getField("name"));
     }
 
+    @Test
+    public void testDeserializeNullRecord() {
+        assertNull(ksBytesDeserializer.deserialize(topic, null));
+    }
 }

@@ -23,7 +23,8 @@ import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
-import io.streamnative.connectors.kafka.KafkaSchemaAndBytes;
+import com.fasterxml.jackson.databind.JsonNode;
+import io.streamnative.connectors.kafka.serde.KafkaSchemaAndBytes;
 import io.streamnative.tests.pulsar.service.PulsarService;
 import io.streamnative.tests.pulsar.suites.PulsarServiceSystemTestCase;
 import java.nio.ByteBuffer;
@@ -37,8 +38,10 @@ import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.reflect.AvroDefault;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.record.TimestampType;
+import org.apache.kafka.connect.json.JsonDeserializer;
 import org.apache.pulsar.client.api.schema.SchemaDefinition;
 import org.apache.pulsar.client.impl.schema.AvroSchema;
+import org.apache.pulsar.client.impl.schema.JSONSchema;
 
 /**
  * A system test base for running pulsar producer tests.
@@ -87,7 +90,15 @@ public class PulsarProducerTestBase extends PulsarServiceSystemTestCase {
 
     }
 
+    private static final JsonDeserializer KAFKA_JSON_DESERIALIZER = new JsonDeserializer();
+
     public static final AvroSchema<User> PULSAR_USER_SCHEMA = AvroSchema.of(
+        SchemaDefinition.<User>builder()
+            .withPojo(User.class)
+            .withAlwaysAllowNull(false)
+            .withSupportSchemaVersioning(true)
+           .build());
+    public static final JSONSchema<User> PULSAR_JSON_USER_SCHEMA = JSONSchema.of(
         SchemaDefinition.<User>builder()
             .withPojo(User.class)
             .withAlwaysAllowNull(false)
@@ -97,6 +108,12 @@ public class PulsarProducerTestBase extends PulsarServiceSystemTestCase {
     public static final Schema AVRO_USER_SCHEMA = new Schema.Parser().parse(AVRO_USER_SCHEMA_DEF);
 
     public static final AvroSchema<Student> PULSAR_STUDENT_SCHEMA = AvroSchema.of(
+        SchemaDefinition.<Student>builder()
+            .withPojo(Student.class)
+            .withAlwaysAllowNull(false)
+            .withSupportSchemaVersioning(true)
+            .build());
+    public static final JSONSchema<Student> PULSAR_JSON_STUDENT_SCHEMA = JSONSchema.of(
         SchemaDefinition.<Student>builder()
             .withPojo(Student.class)
             .withAlwaysAllowNull(false)
@@ -177,6 +194,37 @@ public class PulsarProducerTestBase extends PulsarServiceSystemTestCase {
                 record.put("gpa", student.gpa);
             }
             return record;
+        };
+    public static final Generator<JsonNode> JSON_GENERATOR =
+        (partition, sequence) -> {
+            if (sequence % 2 == 0) {
+                User user = USER_GENERATOR.apply(partition, sequence);
+                return KAFKA_JSON_DESERIALIZER.deserialize(
+                    "",
+                    PULSAR_JSON_USER_SCHEMA.encode(user));
+            } else {
+                Student student = STUDENT_GENERATOR.apply(partition, sequence);
+                return KAFKA_JSON_DESERIALIZER.deserialize(
+                    "",
+                    PULSAR_JSON_STUDENT_SCHEMA.encode(student)
+                );
+            }
+        };
+    public static final Generator<JsonNode> JSON_STUDENT_GENERATOR =
+        (partition, sequence) -> {
+            Student student = STUDENT_GENERATOR.apply(partition, sequence);
+            return KAFKA_JSON_DESERIALIZER.deserialize(
+                "",
+                PULSAR_JSON_STUDENT_SCHEMA.encode(student)
+            );
+        };
+    public static final AvroValueDecoder JSON_VALUE_DECODER =
+        (partition, sequence, bytes) -> {
+            if (sequence % 2 == 0) {
+                return PULSAR_JSON_USER_SCHEMA.decode(bytes);
+            } else {
+                return PULSAR_JSON_STUDENT_SCHEMA.decode(bytes);
+            }
         };
     public static final AvroValueDecoder AVRO_VALUE_DECODER =
         (partition, sequence, bytes) -> {

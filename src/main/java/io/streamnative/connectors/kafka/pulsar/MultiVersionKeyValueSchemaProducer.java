@@ -18,9 +18,9 @@
  */
 package io.streamnative.connectors.kafka.pulsar;
 
-import io.streamnative.connectors.kafka.KafkaAvroSchema;
-import io.streamnative.connectors.kafka.KafkaSchemaAndBytes;
-import io.streamnative.connectors.kafka.KafkaSchemaManager;
+import io.streamnative.connectors.kafka.schema.KafkaAvroSchema;
+import io.streamnative.connectors.kafka.schema.KafkaAvroSchemaManager;
+import io.streamnative.connectors.kafka.serde.KafkaSchemaAndBytes;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -49,7 +49,7 @@ public class MultiVersionKeyValueSchemaProducer implements PulsarProducer {
     private final String topic;
     private final Map<String, Object> producerConfig;
     private final MessageRouter messageRouter;
-    private final KafkaSchemaManager schemaManager;
+    private final KafkaAvroSchemaManager schemaManager;
 
     public MultiVersionKeyValueSchemaProducer(PulsarClient client,
                                               String topic,
@@ -57,7 +57,7 @@ public class MultiVersionKeyValueSchemaProducer implements PulsarProducer {
                                               Schema valueSchema,
                                               Map<String, Object> producerConfig,
                                               MessageRouter messageRouter,
-                                              KafkaSchemaManager manager) {
+                                              KafkaAvroSchemaManager manager) {
         this.producers = new ConcurrentHashMap<>();
         this.keySchema = keySchema;
         this.isKeyKafkaAvroSchema = keySchema instanceof KafkaAvroSchema;

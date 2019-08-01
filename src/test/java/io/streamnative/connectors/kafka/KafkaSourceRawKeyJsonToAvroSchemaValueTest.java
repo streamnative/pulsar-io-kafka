@@ -18,11 +18,11 @@
  */
 package io.streamnative.connectors.kafka;
 
-import static io.streamnative.connectors.kafka.pulsar.PulsarProducerTestBase.AVRO_VALUE_VERIFIER;
+import static io.streamnative.connectors.kafka.pulsar.PulsarProducerTestBase.AVRO_STUDENT_SCHEMA_DEF;
 import static io.streamnative.connectors.kafka.pulsar.PulsarProducerTestBase.PULSAR_STUDENT_SCHEMA;
-import static io.streamnative.connectors.kafka.pulsar.PulsarProducerTestBase.PULSAR_USER_SCHEMA;
 
-import io.confluent.kafka.serializers.KafkaAvroDeserializer;
+import io.streamnative.connectors.kafka.KafkaSourceConfig.JsonSchemaProvider;
+import io.streamnative.connectors.kafka.pulsar.PulsarProducerTestBase.Student;
 import io.streamnative.connectors.kafka.schema.KafkaAvroSchemaManagerConfig;
 import io.streamnative.tests.common.framework.SystemTestRunner;
 import io.streamnative.tests.common.framework.SystemTestRunner.TestSuiteClass;
@@ -34,10 +34,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.OffsetResetStrategy;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
+import org.apache.kafka.connect.json.JsonDeserializer;
 import org.apache.pulsar.client.api.Consumer;
-import org.apache.pulsar.client.api.Schema;
 import org.apache.pulsar.client.api.SubscriptionInitialPosition;
-import org.apache.pulsar.client.api.schema.GenericRecord;
+import org.apache.pulsar.common.naming.TopicName;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.testcontainers.utility.Base58;
@@ -48,22 +48,49 @@ import org.testcontainers.utility.Base58;
 @RunWith(SystemTestRunner.class)
 @TestSuiteClass(KafkaSourceTestSuite.class)
 @Slf4j
-public class KafkaSourceRawKeyAvroSchemaValueTest extends KafkaSourceAvroSchemaTestBase {
+@SuppressWarnings("unchecked")
+public class KafkaSourceRawKeyJsonToAvroSchemaValueTest extends KafkaSourceAvroSchemaTestBase {
 
-    public KafkaSourceRawKeyAvroSchemaValueTest(PulsarService service) {
+    public KafkaSourceRawKeyJsonToAvroSchemaValueTest(PulsarService service) {
         super(service);
     }
 
     @Test
-    public void testMultiVersionedAvroValueSchema() throws Exception {
-        String topic = "test-multi-versioned-avro-value-schema-" + Base58.randomString(8);
+    public void testPulsarSchemaProvider() throws Exception {
+        final int numPartitions = 10;
+        final int numMessages = 10;
+        provisionPartitionedTopic(TopicName.PUBLIC_TENANT, numPartitions, topicName ->
+            testJsonToAvroSchema(
+                JsonSchemaProvider.PULSAR,
+                topicName.toString(),
+                numPartitions,
+                numMessages
+        ));
+    }
 
+    @Test
+    public void testConfigSchemaProvider() throws Exception {
+        final int numPartitions = 10;
+        final int numMessages = 10;
+        testJsonToAvroSchema(
+            JsonSchemaProvider.CONFIG,
+            "test-config-schema-provider-" + Base58.randomString(8),
+            numPartitions,
+            numMessages
+        );
+    }
+
+    private void testJsonToAvroSchema(final JsonSchemaProvider schemaProvider,
+                                     final String pulsarTopic,
+                                     final int numPartitions,
+                                     final int numMessages) throws Exception {
+        String kafkaTopic = TopicName.get(pulsarTopic).getLocalName();
         KafkaSourceConfig config = newKafkaSourceConfig();
-        config.kafka().topic(topic);
+        config.kafka().topic(kafkaTopic);
         config.kafka().consumer()
             .put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
         config.kafka().consumer()
-            .put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, KafkaAvroDeserializer.class.getName());
+            .put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class.getName());
         config.kafka().consumer()
             .put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, OffsetResetStrategy.EARLIEST.name().toLowerCase());
         Map<String, Object> schemaRegistryConfigMap = new HashMap<>();
@@ -72,49 +99,51 @@ public class KafkaSourceRawKeyAvroSchemaValueTest extends KafkaSourceAvroSchemaT
             schemaRegistryServiceUri.getUri().toString()
         );
         config.kafka().schema().schema_registry(schemaRegistryConfigMap);
+        config.kafka().schema().json_schema_provider(schemaProvider);
         config.pulsar().copy_kafka_schema(true);
+        config.pulsar().topic(pulsarTopic);
 
-        final int numPartitions = 10;
-        final int numMessages = 10;
-        createKafkaTopic(topic, numPartitions);
-        admin.topics().createPartitionedTopic(topic, numPartitions);
+        createKafkaTopic(kafkaTopic, numPartitions);
 
-        // upload schema to ensure schema registered first
-        admin.schemas().createSchema(
-            topic, PULSAR_USER_SCHEMA.getSchemaInfo());
-        admin.schemas().createSchema(
-            topic, PULSAR_STUDENT_SCHEMA.getSchemaInfo());
+        if (JsonSchemaProvider.PULSAR == schemaProvider) {
+            // upload schema to ensure schema registered first
+            admin.schemas().createSchema(
+                pulsarTopic, PULSAR_STUDENT_SCHEMA.getSchemaInfo());
+        } else {
+            config.kafka().schema().value_schema(
+                AVRO_STUDENT_SCHEMA_DEF
+            );
+        }
 
         KafkaSource source = new KafkaSource();
         try {
             source.open(config.toConfigMap(), ctx);
 
-            testKafkaSourceSendAndReceiveAvroValues(
-                topic, topic, numPartitions, numMessages
+            testKafkaSourceSendAndReceiveJsonValues(
+                kafkaTopic, pulsarTopic, numPartitions, numMessages
             );
         } finally {
             source.close();
         }
     }
 
-    protected void testKafkaSourceSendAndReceiveAvroValues(
+    protected void testKafkaSourceSendAndReceiveJsonValues(
         String kafkaTopic, String pulsarTopic,
         int numPartitions, int numMessages
     ) throws Exception {
         @Cleanup
-        Consumer<GenericRecord> studentConsumer = client.newConsumer(Schema.AUTO_CONSUME())
+        Consumer<Student> studentConsumer = client.newConsumer(PULSAR_STUDENT_SCHEMA)
             .topic(pulsarTopic)
             .subscriptionName("test-verifier")
             .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
             .subscribe();
 
-        sendAvroMessagesToKafka(kafkaTopic, numPartitions, numMessages);
+        sendJsonMessagesToKafka(kafkaTopic, numPartitions, numMessages);
 
-        receiveAvroValuesFromPulsar(
+        receiveJsonKeyAvroValuesFromPulsar(
             studentConsumer,
             pulsarTopic,
-            numPartitions, numMessages,
-            AVRO_VALUE_VERIFIER
+            numPartitions, numMessages
         );
     }
 }
