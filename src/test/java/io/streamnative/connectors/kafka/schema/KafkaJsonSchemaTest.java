@@ -21,7 +21,6 @@ package io.streamnative.connectors.kafka.schema;
 import static io.streamnative.connectors.kafka.pulsar.PulsarProducerTestBase.AVRO_USER_SCHEMA;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertSame;
-
 import io.confluent.connect.avro.AvroData;
 import io.streamnative.connectors.kafka.KafkaSourceConfig.ConverterType;
 import io.streamnative.connectors.kafka.pulsar.PulsarProducerTestBase.User;

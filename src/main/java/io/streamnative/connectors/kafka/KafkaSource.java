@@ -19,7 +19,6 @@
 package io.streamnative.connectors.kafka;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-
 import io.confluent.kafka.serializers.KafkaAvroDeserializer;
 import io.streamnative.connectors.kafka.KafkaSourceConfig.KafkaConsumerConfig;
 import io.streamnative.connectors.kafka.pulsar.KafkaMessageRouter;
