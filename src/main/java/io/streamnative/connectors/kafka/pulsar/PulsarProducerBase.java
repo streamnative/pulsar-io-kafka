@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.common.header.Header;
 import org.apache.kafka.common.record.TimestampType;
 import org.apache.pulsar.client.api.MessageRouter;
 import org.apache.pulsar.client.api.Producer;
@@ -30,6 +31,7 @@ import org.apache.pulsar.client.api.PulsarClient;
 import org.apache.pulsar.client.api.PulsarClientException;
 import org.apache.pulsar.client.api.Schema;
 import org.apache.pulsar.client.api.TypedMessageBuilder;
+import org.apache.pulsar.shade.org.glassfish.jersey.internal.util.Base64;
 
 /**
  * The producer base implementation.
@@ -108,6 +110,13 @@ public abstract class PulsarProducerBase implements PulsarProducer {
 
         if (record.timestampType() == TimestampType.CREATE_TIME) {
             msgBuilder = msgBuilder.eventTime(record.timestamp());
+        }
+
+        for (Header header : record.headers()) {
+            msgBuilder = msgBuilder.property(
+                header.key(),
+                Base64.encodeAsString(header.value())
+            );
         }
 
         return msgBuilder;

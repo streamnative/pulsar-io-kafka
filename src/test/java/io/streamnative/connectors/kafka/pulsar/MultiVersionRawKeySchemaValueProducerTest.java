@@ -19,22 +19,18 @@
 package io.streamnative.connectors.kafka.pulsar;
 
 import static org.apache.pulsar.common.naming.TopicName.PUBLIC_TENANT;
-import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
 
 import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import io.streamnative.connectors.kafka.KafkaAvroSchema;
 import io.streamnative.connectors.kafka.KafkaMessageRouter;
-import io.streamnative.connectors.kafka.KafkaSchemaAndBytes;
 import io.streamnative.connectors.kafka.KafkaSchemaManager;
 import io.streamnative.connectors.kafka.KafkaSchemaManagerConfig;
 import io.streamnative.tests.common.framework.SystemTestRunner;
 import io.streamnative.tests.common.framework.SystemTestRunner.TestSuiteClass;
 import io.streamnative.tests.pulsar.service.PulsarService;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -43,7 +39,6 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.IntStream;
 import lombok.Cleanup;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.bookkeeper.common.concurrent.FutureUtils;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -67,43 +62,6 @@ import org.junit.runner.RunWith;
 @TestSuiteClass(PulsarProducerTestSuite.class)
 @Slf4j
 public class MultiVersionRawKeySchemaValueProducerTest extends PulsarProducerTestBase {
-
-    /**
-     * A generator to generate users and students.
-     */
-    @RequiredArgsConstructor
-    private static class MultiVersionGenerator implements Generator<KafkaSchemaAndBytes> {
-
-        private final int userSchemaId;
-        private final int studentSchemaId;
-
-        @Override
-        public KafkaSchemaAndBytes apply(int partition, int sequence) {
-            if (sequence % 2 == 0) {
-                User user = new User(
-                    "user-" + partition + "-" + sequence,
-                    10 * sequence
-                );
-                byte[] userData = PULSAR_USER_SCHEMA.encode(user);
-                return new KafkaSchemaAndBytes(
-                    userSchemaId,
-                    ByteBuffer.wrap(userData)
-                );
-            } else {
-                Student student = new Student(
-                    "student-" + partition + "-" + sequence,
-                    10 * sequence,
-                    1.0d * sequence
-                );
-                byte[] studentData = PULSAR_STUDENT_SCHEMA.encode(student);
-                return new KafkaSchemaAndBytes(
-                    studentSchemaId,
-                    ByteBuffer.wrap(studentData)
-                );
-            }
-        }
-
-    }
 
     private final SchemaRegistryClient schemaRegistry;
     private final KafkaSchemaManager schemaManager;
@@ -235,63 +193,6 @@ public class MultiVersionRawKeySchemaValueProducerTest extends PulsarProducerTes
                     message.getValue(),
                     valueSchema,
                     valueGenerator
-                );
-            }
-        }
-    }
-
-    private void verifyMultiVersionData(int partition,
-                                        int sequence,
-                                        byte[] data,
-                                        Schema<?> schema,
-                                        Generator<?> generator) {
-        if (generator instanceof MultiVersionGenerator) {
-            // this is a multi version generator
-            if (sequence % 2 == 0) {
-                User user = PULSAR_USER_SCHEMA.decode(data);
-                User expectedUser = new User(
-                    "user-" + partition + "-" + sequence,
-                    10 * sequence
-                );
-                assertEquals(
-                    expectedUser,
-                    user
-                );
-            } else {
-                Student student = PULSAR_STUDENT_SCHEMA.decode(data);
-                Student expectedStudent = new Student(
-                    "student-" + partition + "-" + sequence,
-                    10 * sequence,
-                    1.0d * sequence
-                );
-                assertEquals(
-                    expectedStudent,
-                    student
-                );
-            }
-        } else {
-            assertValueEquals(
-                partition, sequence,
-                generator,
-                schema.decode(data)
-            );
-        }
-
-    }
-
-    private void assertValueEquals(int partition, int sequence, Generator<?> generator, Object actualValue) {
-        if (null == generator) {
-            assertNull(actualValue);
-        } else {
-            if (actualValue instanceof byte[]) {
-                assertArrayEquals(
-                    (byte[]) generator.apply(partition, sequence),
-                    (byte[]) actualValue
-                );
-            } else {
-                assertEquals(
-                    generator.apply(partition, sequence),
-                    actualValue
                 );
             }
         }

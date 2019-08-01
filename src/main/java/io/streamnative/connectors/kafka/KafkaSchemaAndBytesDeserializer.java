@@ -27,6 +27,12 @@ import org.apache.kafka.common.serialization.Deserializer;
  */
 public class KafkaSchemaAndBytesDeserializer implements Deserializer<KafkaSchemaAndBytes> {
 
+    public static KafkaSchemaAndBytesDeserializer of() {
+        return INSTANCE;
+    }
+
+    private static final KafkaSchemaAndBytesDeserializer INSTANCE = new KafkaSchemaAndBytesDeserializer();
+
     @Override
     public KafkaSchemaAndBytes deserialize(String topic, byte[] data) {
         if (data == null) {

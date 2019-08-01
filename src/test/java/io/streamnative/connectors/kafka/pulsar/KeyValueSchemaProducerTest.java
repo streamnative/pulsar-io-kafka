@@ -19,9 +19,7 @@
 package io.streamnative.connectors.kafka.pulsar;
 
 import static org.apache.pulsar.common.naming.TopicName.PUBLIC_TENANT;
-import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
 
 import io.streamnative.connectors.kafka.KafkaMessageRouter;
 import io.streamnative.tests.common.framework.SystemTestRunner;
@@ -76,24 +74,6 @@ public class KeyValueSchemaProducerTest extends PulsarProducerTestBase {
         KeyValue<K, V> kv = pulsarMessage.getValue();
         assertValueEquals(partition, i, keyGenerator, kv.getKey());
         assertValueEquals(partition, i, valueGenerator, kv.getValue());
-    }
-
-    private <T> void assertValueEquals(int partition, int sequence, Generator<T> generator, T actualValue) {
-        if (null == generator) {
-            assertNull(actualValue);
-        } else {
-            if (actualValue instanceof byte[]) {
-                assertArrayEquals(
-                    (byte[]) generator.apply(partition, sequence),
-                    (byte[]) actualValue
-                );
-            } else {
-                assertEquals(
-                    generator.apply(partition, sequence),
-                    actualValue
-                );
-            }
-        }
     }
 
     @Test
