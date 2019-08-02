@@ -1,4 +1,6 @@
 ## Pulsar IO Kafka Connector
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fstreamnative%2Fpulsar-io-kafka.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fstreamnative%2Fpulsar-io-kafka?ref=badge_shield)
+
 
 pulsar-io-kafka is a [Pulsar IO Connector](http://pulsar.apache.org/docs/en/io-overview/) for copying data between
 Kafka and Pulsar.
@@ -106,3 +108,7 @@ save the messages in AVRO format.
    ```
    Receive message : key = user-99, value = User(name=user-99, age=990, address=address-99)
    ```
+
+
+## License
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fstreamnative%2Fpulsar-io-kafka.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2Fstreamnative%2Fpulsar-io-kafka?ref=badge_large)
