@@ -19,7 +19,6 @@
 package io.streamnative.connectors.kafka.example;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
