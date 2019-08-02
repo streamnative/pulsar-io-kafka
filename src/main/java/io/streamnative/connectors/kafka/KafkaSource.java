@@ -70,6 +70,7 @@ import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.connect.json.JsonDeserializer;
 import org.apache.pulsar.client.admin.PulsarAdmin;
 import org.apache.pulsar.client.admin.PulsarAdminException;
+import org.apache.pulsar.client.admin.PulsarAdminException.NotFoundException;
 import org.apache.pulsar.client.api.HashingScheme;
 import org.apache.pulsar.client.api.MessageId;
 import org.apache.pulsar.client.api.MessageRouter;
@@ -165,14 +166,25 @@ public class KafkaSource implements Source<byte[]> {
             log.info("Getting the partitions for Pulsar topic {}", pulsarTopic);
             int numPartitions = kafkaPartitions.size();
             PartitionedTopicMetadata metadata = admin.topics().getPartitionedTopicMetadata(pulsarTopic);
+            boolean isPartitionedTopic = true;
             if (metadata.partitions == 0) {
-                createPartitionedTopic(admin, pulsarTopic, numPartitions);
+                // check if the non-partitioned topic exists or not
+                try {
+                    admin.topics().getInternalStats(pulsarTopic);
+                    // if the topic already exists.
+                    isPartitionedTopic = false;
+                } catch (NotFoundException nfe) {
+                    // if the topic is not found
+                    log.info("Topic {} doesn't exist as a non-partitioned topic, so creating a new"
+                        + " topic with {} partitions", pulsarTopic, numPartitions);
+                    createPartitionedTopic(admin, pulsarTopic, numPartitions);
+                }
             } else {
                 numPartitions = metadata.partitions;
                 log.info("Got the partition metadata for Pulsar topic {} : partitions = {}",
                     pulsarTopic, metadata.partitions);
             }
-            if (kafkaPartitions.size() != numPartitions) {
+            if (isPartitionedTopic && kafkaPartitions.size() != numPartitions) {
                 if (!config.pulsar().allow_different_num_partitions()) {
                     throw new IllegalArgumentException(
                         "Inconsistent partition number : Kafka topic '" + config.kafka().topic()
