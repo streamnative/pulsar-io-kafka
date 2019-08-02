@@ -19,7 +19,6 @@
 package io.streamnative.connectors.kafka.example;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-
 import org.apache.pulsar.client.api.Consumer;
 import org.apache.pulsar.client.api.Message;
 import org.apache.pulsar.client.api.PulsarClient;
