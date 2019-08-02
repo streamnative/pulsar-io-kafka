@@ -21,7 +21,6 @@ package io.streamnative.connectors.kafka;
 import static io.streamnative.connectors.kafka.pulsar.PulsarProducerTestBase.AVRO_VALUE_VERIFIER;
 import static io.streamnative.connectors.kafka.pulsar.PulsarProducerTestBase.PULSAR_STUDENT_SCHEMA;
 import static io.streamnative.connectors.kafka.pulsar.PulsarProducerTestBase.PULSAR_USER_SCHEMA;
-
 import com.google.common.collect.Lists;
 import io.confluent.kafka.serializers.KafkaAvroDeserializer;
 import io.streamnative.connectors.kafka.schema.KafkaAvroSchemaManagerConfig;

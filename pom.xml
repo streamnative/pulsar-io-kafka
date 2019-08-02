@@ -45,7 +45,7 @@
     <testRetryCount>2</testRetryCount>
 
     <!-- connector dependencies -->
-    <jackson.version>2.9.7</jackson.version>
+    <jackson.version>2.9.9</jackson.version>
     <confluent.version>5.2.2</confluent.version>
     <kafka.version>2.3.0</kafka.version>
     <lombok.version>1.16.22</lombok.version>
@@ -64,7 +64,7 @@
     <maven-compiler-plugin.version>3.7.0</maven-compiler-plugin.version>
     <maven-surefire-plugin.version>2.21.0</maven-surefire-plugin.version>
     <nifi.nar.plugin.version>1.2.0</nifi.nar.plugin.version>
-    <puppycrawl.checkstyle.version>6.19</puppycrawl.checkstyle.version>
+    <puppycrawl.checkstyle.version>8.18</puppycrawl.checkstyle.version>
     <spotbugs-maven-plugin.version>3.1.8</spotbugs-maven-plugin.version>
   </properties>
 

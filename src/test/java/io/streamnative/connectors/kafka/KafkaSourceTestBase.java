@@ -23,7 +23,6 @@ import static io.streamnative.tests.pulsar.service.ExternalServices.KAFKA_SCHEMA
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.mockito.Mockito.mock;
-
 import com.google.common.collect.Lists;
 import io.streamnative.connectors.kafka.KafkaSourceConfig.KafkaConsumerConfig;
 import io.streamnative.connectors.kafka.KafkaSourceConfig.PulsarProducerConfig;

@@ -20,7 +20,6 @@ package io.streamnative.connectors.kafka;
 
 import static io.streamnative.connectors.kafka.pulsar.PulsarProducerTestBase.AVRO_STUDENT_SCHEMA_DEF;
 import static io.streamnative.connectors.kafka.pulsar.PulsarProducerTestBase.PULSAR_STUDENT_SCHEMA;
-
 import io.streamnative.connectors.kafka.KafkaSourceConfig.JsonSchemaProvider;
 import io.streamnative.connectors.kafka.pulsar.PulsarProducerTestBase.Student;
 import io.streamnative.connectors.kafka.schema.KafkaAvroSchemaManagerConfig;

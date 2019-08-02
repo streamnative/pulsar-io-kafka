@@ -20,7 +20,6 @@ package io.streamnative.connectors.kafka.schema;
 
 import static io.streamnative.connectors.kafka.AvroTestSchemas.USER_SCHEMA;
 import static org.junit.Assert.assertEquals;
-
 import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import java.util.HashMap;

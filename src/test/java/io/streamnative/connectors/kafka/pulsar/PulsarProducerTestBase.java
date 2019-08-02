@@ -22,7 +22,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
-
 import com.fasterxml.jackson.databind.JsonNode;
 import io.streamnative.connectors.kafka.serde.KafkaSchemaAndBytes;
 import io.streamnative.tests.pulsar.service.PulsarService;

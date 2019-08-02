@@ -21,7 +21,6 @@ package io.streamnative.connectors.kafka.schema;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertSame;
-
 import org.apache.kafka.common.utils.Bytes;
 import org.apache.pulsar.client.api.Schema;
 import org.junit.Test;

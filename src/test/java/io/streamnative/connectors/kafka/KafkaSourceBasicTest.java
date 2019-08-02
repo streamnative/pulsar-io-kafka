@@ -23,7 +23,6 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.mockito.Mockito.mock;
-
 import io.confluent.kafka.serializers.KafkaAvroDeserializer;
 import io.streamnative.connectors.kafka.KafkaSourceConfig.KafkaConsumerConfig;
 import io.streamnative.connectors.kafka.KafkaSourceConfig.PulsarProducerConfig;
