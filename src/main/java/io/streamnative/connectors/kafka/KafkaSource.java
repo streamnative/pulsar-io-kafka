@@ -75,7 +75,6 @@ import org.apache.pulsar.client.api.MessageId;
 import org.apache.pulsar.client.api.MessageRouter;
 import org.apache.pulsar.client.api.PulsarClient;
 import org.apache.pulsar.client.api.Schema;
-import org.apache.pulsar.client.impl.conf.ConfigurationDataUtils;
 import org.apache.pulsar.client.impl.conf.ProducerConfigurationData;
 import org.apache.pulsar.client.impl.schema.StringSchema;
 import org.apache.pulsar.common.partition.PartitionedTopicMetadata;
@@ -204,9 +203,11 @@ public class KafkaSource implements Source<byte[]> {
         }
 
         ProducerConfigurationData producerConf = new ProducerConfigurationData();
-        if (config.pulsar().producer() != null) {
-            ConfigurationDataUtils.loadData(config.pulsar().producer(), producerConf, ProducerConfigurationData.class);
-        }
+        // TODO: this requires 2.4.1+
+        // if (config.pulsar().producer() != null) {
+        //     ConfigurationDataUtils.loadData(config.pulsar().producer(),
+        //        producerConf, ProducerConfigurationData.class);
+        // }
         MessageRouter messageRouter = new KafkaMessageRouter(
             HashingScheme.Murmur3_32Hash,
             0,
