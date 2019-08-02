@@ -19,7 +19,6 @@
 package io.streamnative.connectors.kafka.schema;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-
 import com.fasterxml.jackson.databind.JsonNode;
 import io.confluent.connect.avro.AvroConverter;
 import io.confluent.connect.avro.AvroData;

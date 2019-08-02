@@ -21,7 +21,6 @@ package io.streamnative.connectors.kafka.pulsar;
 import static org.apache.pulsar.common.naming.TopicName.PUBLIC_TENANT;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-
 import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import io.streamnative.connectors.kafka.schema.KafkaAvroSchema;

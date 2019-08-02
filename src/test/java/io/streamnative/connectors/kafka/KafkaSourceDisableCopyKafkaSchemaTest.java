@@ -25,7 +25,6 @@ import static io.streamnative.connectors.kafka.pulsar.PulsarProducerTestBase.INT
 import static io.streamnative.connectors.kafka.pulsar.PulsarProducerTestBase.LONG_GENERATOR;
 import static io.streamnative.connectors.kafka.pulsar.PulsarProducerTestBase.SHORT_GENERATOR;
 import static io.streamnative.connectors.kafka.pulsar.PulsarProducerTestBase.STRING_GENERATOR;
-
 import io.streamnative.connectors.kafka.pulsar.Generator;
 import io.streamnative.tests.common.framework.SystemTestRunner;
 import io.streamnative.tests.common.framework.SystemTestRunner.TestSuiteClass;

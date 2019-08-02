@@ -19,7 +19,6 @@
 package io.streamnative.connectors.kafka.pulsar;
 
 import static io.streamnative.connectors.kafka.KafkaSource.HEADER_KAFKA_PTN_KEY;
-
 import org.apache.pulsar.client.api.HashingScheme;
 import org.apache.pulsar.client.api.Message;
 import org.apache.pulsar.client.api.TopicMetadata;
