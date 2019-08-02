@@ -29,6 +29,7 @@ import org.apache.pulsar.client.api.MessageRouter;
 import org.apache.pulsar.client.api.Producer;
 import org.apache.pulsar.client.api.PulsarClient;
 import org.apache.pulsar.client.api.PulsarClientException;
+import org.apache.pulsar.client.api.PulsarClientException.IncompatibleSchemaException;
 import org.apache.pulsar.client.api.Schema;
 import org.apache.pulsar.client.api.TypedMessageBuilder;
 import org.apache.pulsar.shade.org.glassfish.jersey.internal.util.Base64;
@@ -76,6 +77,10 @@ public abstract class PulsarProducerBase implements PulsarProducer {
                         log.info("Successfully created Producer for topic {} with schema {}",
                             topic, schema.getSchemaInfo());
                         return producer;
+                    } catch (IncompatibleSchemaException ise) {
+                        log.error("Failed to create producer for topic with an incompatible schema {}",
+                            schema.getSchemaInfo(), ise);
+                        throw ise;
                     } catch (PulsarClientException pce) {
                         if (pce.getMessage() != null && pce.getMessage().contains(
                             "org.apache.zookeeper.KeeperException$BadVersionException: KeeperErrorCode = BadVersion")) {
