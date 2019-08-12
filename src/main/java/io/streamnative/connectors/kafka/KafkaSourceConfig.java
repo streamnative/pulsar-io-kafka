@@ -119,6 +119,13 @@ public class KafkaSourceConfig {
                 + " is configured to `CONFIG` provider"
         )
         public String key_schema;
+
+        @FieldDoc(
+            defaultValue = "true",
+            help = "If the records read from Kafka topic are not able to be converted to the"
+                + " target schema, skip the records."
+        )
+        public boolean skip_corrupted_records = true;
         //CHECKSTYLE.ON: MemberName
     }
 
