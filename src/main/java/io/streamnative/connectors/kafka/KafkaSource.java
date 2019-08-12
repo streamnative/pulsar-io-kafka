@@ -76,6 +76,7 @@ import org.apache.pulsar.client.api.MessageId;
 import org.apache.pulsar.client.api.MessageRouter;
 import org.apache.pulsar.client.api.PulsarClient;
 import org.apache.pulsar.client.api.Schema;
+import org.apache.pulsar.client.api.SchemaSerializationException;
 import org.apache.pulsar.client.impl.conf.ProducerConfigurationData;
 import org.apache.pulsar.client.impl.schema.StringSchema;
 import org.apache.pulsar.common.partition.PartitionedTopicMetadata;
@@ -84,6 +85,7 @@ import org.apache.pulsar.functions.api.Record;
 import org.apache.pulsar.io.core.Source;
 import org.apache.pulsar.io.core.SourceContext;
 import org.apache.pulsar.shade.javax.ws.rs.ClientErrorException;
+import org.bouncycastle.util.encoders.Base64;
 
 /**
  * Kafka source connector.
@@ -449,6 +451,18 @@ public class KafkaSource implements Source<byte[]> {
         log.info("Started KafkaFetchThread successfully");
     }
 
+    private Object toHumanReadableFormat(Object key) {
+        if (key instanceof byte[]) {
+            try {
+                return new String((byte[]) key, UTF_8);
+            } catch (Throwable cause) {
+                return Base64.toBase64String((byte[]) key);
+            }
+        } else {
+            return key;
+        }
+    }
+
     private void consumeKafkaRecordsLoop() throws InterruptedException, ExecutionException {
         ConsumerRecords<Object, Object> consumerRecords;
         LinkedBlockingQueue<PendingMessage> pendingMessages = new LinkedBlockingQueue<>();
@@ -457,7 +471,24 @@ public class KafkaSource implements Source<byte[]> {
             Iterator<ConsumerRecord<Object, Object>> recordIterator = consumerRecords.iterator();
             while (recordIterator.hasNext()) {
                 ConsumerRecord<Object, Object> record = recordIterator.next();
-                CompletableFuture<MessageId> sendFuture = pulsarProducer.send(record);
+                CompletableFuture<MessageId> sendFuture;
+                try {
+                    sendFuture = pulsarProducer.send(record);
+                } catch (SchemaSerializationException sse) {
+                    if (config.kafka().schema().skip_corrupted_records()) {
+                        log.info("Unable to serialize a kafka record to a pulsar record, skip it :"
+                                + " kafka record = (key = {}, value = {}), error = {}",
+                            toHumanReadableFormat(record.key()),
+                            toHumanReadableFormat(record.value()),
+                            sse.getMessage());
+                        continue;
+                    } else {
+                        log.error("Failed to serialize a kafka record to a pulsar record :"
+                                + " kafka record = (key = {}, value = {})",
+                            toHumanReadableFormat(record.key()), toHumanReadableFormat(record.value()), sse);
+                        throw sse;
+                    }
+                }
                 PendingMessage pendingMessage = new PendingMessage(record, sendFuture);
                 pendingMessages.put(pendingMessage);
             }
