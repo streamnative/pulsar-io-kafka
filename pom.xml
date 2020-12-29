@@ -46,7 +46,7 @@
 
     <!-- connector dependencies -->
     <jackson.version>2.9.9</jackson.version>
-    <jackson-databind.version>2.9.9.2</jackson-databind.version>
+    <jackson-databind.version>2.9.10.5</jackson-databind.version>
     <confluent.version>5.2.2</confluent.version>
     <kafka.version>2.3.0</kafka.version>
     <lombok.version>1.16.22</lombok.version>
