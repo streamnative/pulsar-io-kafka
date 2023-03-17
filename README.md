@@ -1,4 +1,17 @@
+# Archived repository
+
+This repository has been archived. 
+
+The Pulsar IO Kafka Connector code can now be found at [apache/pulsar/pulsar-io/kafka](https://github.com/apache/pulsar/tree/master/pulsar-io/kafka). 
+
+Source documentation: https://pulsar.apache.org/docs/io-kafka-source/
+
+Sink documentation: https://pulsar.apache.org/docs/io-kafka-sink/
+
+---
+
 ## Pulsar IO Kafka Connector
+
 [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fstreamnative%2Fpulsar-io-kafka.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fstreamnative%2Fpulsar-io-kafka?ref=badge_shield)
 
 
